@@ -47,8 +47,10 @@ const Inventory: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showEditProduct, setShowEditProduct] = useState(false);
   const [showStockDialog, setShowStockDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Partial<Product>>({});
   const [stockOperation, setStockOperation] = useState<'add' | 'subtract' | 'set'>('add');
   const [stockQuantity, setStockQuantity] = useState('');
   const [stockReason, setStockReason] = useState('');
@@ -137,6 +139,41 @@ const Inventory: React.FC = () => {
       await loadData();
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to add product';
+      toast.error(message);
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct({
+      _id: product._id,
+      name: product.name,
+      barcode: product.barcode || '',
+      plu: product.plu || '',
+      category: product.category,
+      price: product.price,
+      priceType: product.priceType,
+      unit: product.unit,
+      stockCapacity: product.stockCapacity || 1000,
+      lowStockThreshold: product.lowStockThreshold,
+      reorderPoint: product.reorderPoint,
+      taxable: product.taxable,
+      taxRate: product.taxRate,
+      ageRestricted: product.ageRestricted,
+      minimumAge: product.minimumAge,
+      isActive: product.isActive,
+    });
+    setShowEditProduct(true);
+  };
+
+  const handleUpdateProduct = async () => {
+    try {
+      await productAPI.update(editingProduct._id!, editingProduct);
+      toast.success('Product updated successfully');
+      setShowEditProduct(false);
+      setEditingProduct({});
+      await loadData();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to update product';
       toast.error(message);
     }
   };
@@ -398,7 +435,10 @@ const Inventory: React.FC = () => {
                             >
                               Remove
                             </Button>
-                            <IconButton size="small">
+                            <IconButton 
+                              size="small"
+                              onClick={() => handleEditProduct(product)}
+                            >
                               <Edit />
                             </IconButton>
                             <IconButton
@@ -557,6 +597,137 @@ const Inventory: React.FC = () => {
             disabled={!newProduct.name || !newProduct.price}
           >
             Add Product
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={showEditProduct} onClose={() => setShowEditProduct(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Product</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Product Name"
+                value={editingProduct.name || ''}
+                onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={editingProduct.category || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                  label="Category"
+                >
+                  {categories.map((cat) => (
+                    <MenuItem key={cat} value={cat}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Barcode"
+                value={editingProduct.barcode || ''}
+                onChange={(e) => setEditingProduct({ ...editingProduct, barcode: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="PLU Code"
+                value={editingProduct.plu || ''}
+                onChange={(e) => setEditingProduct({ ...editingProduct, plu: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Price"
+                type="number"
+                value={editingProduct.price || 0}
+                onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })}
+                inputProps={{ min: 0, step: 0.01 }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Price Type</InputLabel>
+                <Select
+                  value={editingProduct.priceType || 'fixed'}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, priceType: e.target.value as 'fixed' | 'weight' })}
+                  label="Price Type"
+                >
+                  <MenuItem value="fixed">Fixed Price</MenuItem>
+                  <MenuItem value="weight">Price by Weight</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Unit</InputLabel>
+                <Select
+                  value={editingProduct.unit || 'piece'}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value as any })}
+                  label="Unit"
+                >
+                  <MenuItem value="piece">Piece</MenuItem>
+                  <MenuItem value="lb">Pound</MenuItem>
+                  <MenuItem value="kg">Kilogram</MenuItem>
+                  <MenuItem value="oz">Ounce</MenuItem>
+                  <MenuItem value="gram">Gram</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Stock Capacity"
+                type="number"
+                value={editingProduct.stockCapacity || 1000}
+                onChange={(e) => setEditingProduct({ ...editingProduct, stockCapacity: parseInt(e.target.value) || 1000 })}
+                inputProps={{ min: 1 }}
+                helperText="Maximum storage capacity"
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Low Stock Threshold"
+                type="number"
+                value={editingProduct.lowStockThreshold || 10}
+                onChange={(e) => setEditingProduct({ ...editingProduct, lowStockThreshold: parseInt(e.target.value) || 10 })}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Reorder Point"
+                type="number"
+                value={editingProduct.reorderPoint || 5}
+                onChange={(e) => setEditingProduct({ ...editingProduct, reorderPoint: parseInt(e.target.value) || 5 })}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowEditProduct(false)}>Cancel</Button>
+          <Button
+            onClick={handleUpdateProduct}
+            variant="contained"
+            disabled={!editingProduct.name || !editingProduct.price}
+          >
+            Update Product
           </Button>
         </DialogActions>
       </Dialog>
