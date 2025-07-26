@@ -36,16 +36,14 @@ const PLULookup: React.FC<PLULookupProps> = ({
   const [produceItems, setProduceItems] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Common PLU codes for quick access
+  // Common PLU codes for quick access (matching seed data)
   const commonPLUs = [
     { plu: '4011', name: 'Bananas', price: 0.68 },
-    { plu: '4131', name: 'Granny Smith Apples', price: 1.49 },
+    { plu: '4017', name: 'Granny Smith Apples', price: 1.49 },
+    { plu: '4087', name: 'Roma Tomatoes', price: 1.29 },
     { plu: '4065', name: 'Green Bell Peppers', price: 1.99 },
-    { plu: '4078', name: 'Roma Tomatoes', price: 1.29 },
     { plu: '4082', name: 'Red Onions', price: 0.99 },
     { plu: '4225', name: 'Broccoli Crowns', price: 2.49 },
-    { plu: '4688', name: 'Red Bell Peppers', price: 2.99 },
-    { plu: '4593', name: 'Russet Potatoes', price: 0.79 },
   ];
 
   useEffect(() => {
@@ -68,12 +66,16 @@ const PLULookup: React.FC<PLULookupProps> = ({
     
     setIsLoading(true);
     try {
+      console.log('Searching for PLU:', plu);
       const response = await productAPI.getByPLU(plu);
+      console.log('PLU search response:', response.data);
       onProductFound(response.data);
       toast.success(`Found: ${response.data.name}`);
       onClose();
+      setPluCode(''); // Clear the input after successful search
     } catch (error: any) {
-      const message = error.response?.data?.message || 'PLU not found';
+      console.error('PLU search error:', error);
+      const message = error.response?.data?.message || `PLU ${plu} not found`;
       toast.error(message);
     } finally {
       setIsLoading(false);

@@ -21,6 +21,11 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
 import {
   Delete,
@@ -29,6 +34,7 @@ import {
   Scale,
   LocalOffer,
   Payment,
+  Search,
 } from '@mui/icons-material';
 import { useCartStore } from '../store/cartStore';
 import { useAuthStore } from '../store/authStore';
@@ -37,6 +43,7 @@ import PLULookup from '../components/PLULookup';
 import CustomerSelector from '../components/CustomerSelector';
 import PaymentDialog from '../components/PaymentDialog';
 import { Product, CartItem } from '../types';
+import { productAPI } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
@@ -61,6 +68,9 @@ const POS: React.FC = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
   const [editQuantity, setEditQuantity] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const handleProductFound = (product: Product) => {
     try {
@@ -72,9 +82,37 @@ const POS: React.FC = () => {
         addItem(product, 1);
         toast.success(`Added ${product.name} to cart`);
       }
+      setShowSearchResults(false);
+      setSearchQuery('');
+      setSearchResults([]);
     } catch (error) {
       console.error('Error adding product to cart:', error);
       toast.error('Failed to add product to cart');
+    }
+  };
+
+  const handleProductSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+    
+    try {
+      const response = await productAPI.search({ query });
+      setSearchResults(response.data);
+      setShowSearchResults(true);
+    } catch (error) {
+      console.error('Error searching products:', error);
+      toast.error('Failed to search products');
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  };
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleProductSearch(searchQuery);
     }
   };
 
@@ -136,6 +174,86 @@ const POS: React.FC = () => {
                 Product Scanner
               </Typography>
               <BarcodeScanner onProductFound={handleProductFound} />
+              
+              {/* Product Search */}
+              <Box sx={{ mt: 2, position: 'relative' }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search products by name, barcode, or PLU..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.length >= 2) {
+                      handleProductSearch(e.target.value);
+                    } else {
+                      setShowSearchResults(false);
+                    }
+                  }}
+                  onKeyPress={handleSearchKeyPress}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                
+                {showSearchResults && searchResults.length > 0 && (
+                  <Paper
+                    elevation={3}
+                    sx={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      zIndex: 1000,
+                      maxHeight: 300,
+                      overflow: 'auto',
+                      mt: 1,
+                    }}
+                  >
+                    <List dense>
+                      {searchResults.map((product) => (
+                        <ListItem
+                          key={product._id}
+                          button
+                          onClick={() => handleProductFound(product)}
+                        >
+                          <ListItemText
+                            primary={product.name}
+                            secondary={
+                              <Box>
+                                <Typography variant="caption" display="block">
+                                  {product.category} • {formatCurrency(product.price)}/{product.unit}
+                                </Typography>
+                                {product.barcode && (
+                                  <Typography variant="caption" color="textSecondary">
+                                    Barcode: {product.barcode}
+                                  </Typography>
+                                )}
+                                {product.plu && (
+                                  <Typography variant="caption" color="textSecondary" sx={{ ml: 1 }}>
+                                    PLU: {product.plu}
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                          />
+                          <ListItemSecondaryAction>
+                            <Chip 
+                              label={product.stockQuantity > 0 ? 'In Stock' : 'Out of Stock'}
+                              color={product.stockQuantity > 0 ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Paper>
+                )}
+              </Box>
               
               <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                 <Button

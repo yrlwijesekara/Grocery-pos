@@ -97,6 +97,19 @@ const Customers: React.FC = () => {
     try {
       const response = await customerAPI.search({ query: searchQuery });
       setCustomers(response.data);
+      
+      // Update stats for search results
+      const totalCustomers = response.data.length;
+      const loyaltyMembers = response.data.filter((c: Customer) => c.loyaltyProgram.membershipNumber).length;
+      const goldMembers = response.data.filter((c: Customer) => c.loyaltyProgram.tier === 'gold').length;
+      const platinumMembers = response.data.filter((c: Customer) => c.loyaltyProgram.tier === 'platinum').length;
+      
+      setStats({
+        totalCustomers,
+        loyaltyMembers,
+        goldMembers,
+        platinumMembers,
+      });
     } catch (error: any) {
       console.error('Error searching customers:', error);
       toast.error('Failed to search customers');
@@ -274,18 +287,31 @@ const Customers: React.FC = () => {
                 <Box display="flex" gap={1}>
                   <TextField
                     size="small"
-                    placeholder="Search customers..."
+                    placeholder="Search by name, phone, email, or membership..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && searchCustomers()}
+                    sx={{ minWidth: 300 }}
                   />
                   <Button
                     variant="outlined"
                     startIcon={<Search />}
                     onClick={searchCustomers}
+                    disabled={!searchQuery.trim()}
                   >
                     Search
                   </Button>
+                  {searchQuery && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setSearchQuery('');
+                        fetchCustomers();
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </Box>
               </Box>
               

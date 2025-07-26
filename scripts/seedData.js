@@ -95,6 +95,51 @@ const sampleProducts = [
     taxRate: 0,
     ageRestricted: false
   },
+  {
+    name: 'Green Bell Peppers',
+    barcode: '4065000000000',
+    plu: '4065',
+    category: 'produce',
+    price: 1.99,
+    priceType: 'weight',
+    unit: 'lb',
+    stockQuantity: 20,
+    lowStockThreshold: 5,
+    reorderPoint: 3,
+    taxable: false,
+    taxRate: 0,
+    ageRestricted: false
+  },
+  {
+    name: 'Red Onions',
+    barcode: '4082000000000',
+    plu: '4082',
+    category: 'produce',
+    price: 0.99,
+    priceType: 'weight',
+    unit: 'lb',
+    stockQuantity: 30,
+    lowStockThreshold: 8,
+    reorderPoint: 4,
+    taxable: false,
+    taxRate: 0,
+    ageRestricted: false
+  },
+  {
+    name: 'Broccoli Crowns',
+    barcode: '4225000000000',
+    plu: '4225',
+    category: 'produce',
+    price: 2.49,
+    priceType: 'weight',
+    unit: 'lb',
+    stockQuantity: 15,
+    lowStockThreshold: 4,
+    reorderPoint: 2,
+    taxable: false,
+    taxRate: 0,
+    ageRestricted: false
+  },
   
   // Packaged goods
   {
@@ -325,8 +370,6 @@ const seedDatabase = async () => {
     // Seed Users
     console.log('Seeding users...');
     for (const userData of sampleUsers) {
-      const salt = await bcrypt.genSalt(10);
-      userData.password = await bcrypt.hash(userData.password, salt);
       const user = new User(userData);
       await user.save();
     }
