@@ -108,6 +108,7 @@ const Inventory: React.FC = () => {
     } else {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleAddProduct = async () => {

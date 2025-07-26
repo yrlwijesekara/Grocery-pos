@@ -12,7 +12,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Button,
   FormControl,
   InputLabel,
@@ -26,7 +25,6 @@ import {
   Assessment,
   TrendingUp,
   ShoppingCart,
-  People,
   Inventory,
   Refresh,
 } from '@mui/icons-material';
@@ -124,6 +122,7 @@ const Reports: React.FC = () => {
     } else {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedDate]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {

@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   Grid,
-  Alert,
   Table,
   TableBody,
   TableCell,
@@ -19,10 +18,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   IconButton,
   Chip,
   CircularProgress,
@@ -116,6 +111,7 @@ const Customers: React.FC = () => {
 
   useEffect(() => {
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAddCustomer = async () => {

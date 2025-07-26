@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": []
+  }
+}
