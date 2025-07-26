@@ -7,6 +7,7 @@ import POS from './pages/POS';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Customers from './pages/Customers';
+import Loyalty from './pages/Loyalty';
 import Settings from './pages/Settings';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/pos" element={<POS />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/customers" element={<Customers />} />
+        <Route path="/loyalty" element={<Loyalty />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/pos" replace />} />

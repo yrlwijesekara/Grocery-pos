@@ -97,7 +97,7 @@ export const customerAPI = {
   
   delete: (id: string) => api.delete(`/customers/${id}`),
   
-  enrollLoyalty: (id: string) => api.post(`/customers/${id}/loyalty/enroll`),
+  enrollLoyalty: (id: string) => api.post(`/customers/${id}/enroll-loyalty`),
   
   redeemPoints: (id: string, points: number) =>
     api.post(`/customers/${id}/loyalty/redeem`, { points }),
@@ -160,6 +160,26 @@ export const reportsAPI = {
   
   getEmployeePerformance: (params: any) =>
     api.get('/reports/employee-performance', { params }),
+};
+
+// Loyalty Program APIs
+export const loyaltyAPI = {
+  getCustomerLoyalty: (customerId: string) =>
+    api.get(`/loyalty/customer/${customerId}`),
+  
+  adjustPoints: (data: {
+    customerId: string;
+    pointsAdjustment: number;
+    reason: string;
+    type: 'add' | 'subtract' | 'set';
+  }) => api.post('/loyalty/adjust-points', data),
+  
+  getStats: () => api.get('/loyalty/stats'),
+  
+  redeemPoints: (data: { customerId: string; pointsToRedeem: number }) =>
+    api.post('/loyalty/redeem', data),
+  
+  getTiers: () => api.get('/loyalty/tiers'),
 };
 
 export default api;

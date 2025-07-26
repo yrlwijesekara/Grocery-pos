@@ -355,6 +355,46 @@ router.get('/:id/history', authMiddleware, async (req, res) => {
   }
 });
 
+// Enroll customer in loyalty program
+router.post('/:id/enroll-loyalty', authMiddleware, async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+    
+    if (customer.loyaltyProgram.membershipNumber) {
+      return res.status(400).json({ message: 'Customer is already enrolled in loyalty program' });
+    }
+    
+    // Enroll in loyalty program
+    customer.loyaltyProgram.membershipNumber = 'LP' + Date.now() + Math.floor(Math.random() * 10000);
+    customer.loyaltyProgram.joinDate = new Date();
+    customer.loyaltyProgram.tier = 'bronze';
+    customer.loyaltyProgram.points = 0;
+    customer.updatedAt = Date.now();
+    
+    await customer.save();
+    
+    console.log(`Customer enrolled in loyalty program: ${customer.customerId} - ${customer.firstName} ${customer.lastName} by user ${req.user.employeeId}`);
+    
+    res.json({
+      message: 'Customer enrolled in loyalty program successfully',
+      customer: {
+        _id: customer._id,
+        customerId: customer.customerId,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        loyaltyProgram: customer.loyaltyProgram
+      }
+    });
+  } catch (error) {
+    console.error('Loyalty enrollment error:', error);
+    res.status(500).json({ message: 'Server error during loyalty enrollment' });
+  }
+});
+
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const customer = await Customer.findByIdAndUpdate(

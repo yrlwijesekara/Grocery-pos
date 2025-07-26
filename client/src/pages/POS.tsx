@@ -42,6 +42,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import PLULookup from '../components/PLULookup';
 import CustomerSelector from '../components/CustomerSelector';
 import PaymentDialog from '../components/PaymentDialog';
+import LoyaltyCard from '../components/LoyaltyCard';
 import { Product, CartItem } from '../types';
 import { productAPI } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
@@ -56,11 +57,13 @@ const POS: React.FC = () => {
     taxAmount,
     discountAmount,
     totalAmount,
+    loyaltyPointsToUse,
     addItem,
     removeItem,
     updateItemQuantity,
     clearCart,
     setCustomer,
+    setLoyaltyPointsToUse,
   } = useCartStore();
 
   const [showPLU, setShowPLU] = useState(false);
@@ -141,6 +144,10 @@ const POS: React.FC = () => {
   const handleClearCart = () => {
     clearCart();
     toast.success('Cart cleared');
+  };
+
+  const handleLoyaltyPointsRedeemed = (pointsUsed: number, discountValue: number) => {
+    setLoyaltyPointsToUse(pointsUsed);
   };
 
   const handleCheckout = () => {
@@ -393,15 +400,11 @@ const POS: React.FC = () => {
               </Typography>
 
               {customer && (
-                <Box sx={{ mb: 2, p: 2, bgcolor: 'primary.50', borderRadius: 1 }}>
-                  <Typography variant="subtitle2" color="primary">
-                    Customer: {customer.firstName} {customer.lastName}
-                  </Typography>
-                  {customer.loyaltyProgram.membershipNumber && (
-                    <Typography variant="caption" color="textSecondary">
-                      Loyalty: {customer.loyaltyProgram.membershipNumber}
-                    </Typography>
-                  )}
+                <Box sx={{ mb: 2 }}>
+                  <LoyaltyCard 
+                    customer={customer} 
+                    onPointsRedeemed={handleLoyaltyPointsRedeemed}
+                  />
                 </Box>
               )}
 
@@ -422,11 +425,19 @@ const POS: React.FC = () => {
                     </Typography>
                   </Box>
                 )}
+                {loyaltyPointsToUse > 0 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography color="success.main">Loyalty Discount ({loyaltyPointsToUse} points):</Typography>
+                    <Typography color="success.main">
+                      -{formatCurrency(loyaltyPointsToUse * 0.01)}
+                    </Typography>
+                  </Box>
+                )}
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="h6">Total:</Typography>
                   <Typography variant="h6" color="primary">
-                    {formatCurrency(totalAmount)}
+                    {formatCurrency(totalAmount - (loyaltyPointsToUse * 0.01))}
                   </Typography>
                 </Box>
               </Box>
@@ -502,7 +513,7 @@ const POS: React.FC = () => {
       <PaymentDialog
         open={showPayment}
         onClose={() => setShowPayment(false)}
-        total={totalAmount}
+        total={totalAmount - (loyaltyPointsToUse * 0.01)}
         items={items}
         customer={customer}
       />

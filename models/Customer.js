@@ -138,7 +138,24 @@ customerSchema.methods.updateLoyaltyTier = function() {
 };
 
 customerSchema.methods.addPoints = function(amount) {
-  const pointsEarned = Math.floor(amount * 0.01);
+  // Get multiplier based on current tier
+  let multiplier = 1;
+  switch (this.loyaltyProgram.tier) {
+    case 'silver':
+      multiplier = 1.25;
+      break;
+    case 'gold':
+      multiplier = 1.5;
+      break;
+    case 'platinum':
+      multiplier = 2;
+      break;
+    default:
+      multiplier = 1;
+  }
+  
+  const basePoints = Math.floor(amount * 0.01);
+  const pointsEarned = Math.floor(basePoints * multiplier);
   this.loyaltyProgram.points += pointsEarned;
   return pointsEarned;
 };

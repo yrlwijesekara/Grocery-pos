@@ -38,6 +38,7 @@ app.use('/api/customers', require('./routes/customers'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/scales', require('./routes/scales'));
 app.use('/api/coupons', require('./routes/coupons'));
+app.use('/api/loyalty', require('./routes/loyalty'));
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);

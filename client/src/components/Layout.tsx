@@ -24,6 +24,7 @@ import {
   Settings,
   Schedule,
   ExitToApp,
+  Stars,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -44,6 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { text: 'POS Terminal', icon: <ShoppingCart />, path: '/pos' },
     { text: 'Inventory', icon: <Inventory />, path: '/inventory', permission: 'canManageInventory' },
     { text: 'Customers', icon: <People />, path: '/customers' },
+    { text: 'Loyalty Program', icon: <Stars />, path: '/loyalty', permission: 'canManageUsers' },
     { text: 'Reports', icon: <Assessment />, path: '/reports', permission: 'canViewReports' },
     { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];
