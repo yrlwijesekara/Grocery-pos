@@ -122,7 +122,15 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
     
+    // Generate unique transaction ID
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const transactionId = `TXN${timestamp}${random}`;
+    const receiptNumber = `RCP${timestamp}${random}`;
+    
     const transaction = new Transaction({
+      transactionId: transactionId,
+      receiptNumber: receiptNumber,
       items: processedItems,
       customer: customer || null,
       cashier: req.user._id,

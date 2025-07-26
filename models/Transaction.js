@@ -130,12 +130,20 @@ const transactionSchema = new mongoose.Schema({
 });
 
 transactionSchema.pre('save', function(next) {
+  // Generate transactionId if not provided
   if (!this.transactionId) {
-    this.transactionId = 'TXN' + Date.now() + Math.floor(Math.random() * 1000);
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    this.transactionId = `TXN${timestamp}${random}`;
   }
+  
+  // Generate receiptNumber if not provided
   if (!this.receiptNumber) {
-    this.receiptNumber = 'RCP' + Date.now() + Math.floor(Math.random() * 1000);
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    this.receiptNumber = `RCP${timestamp}${random}`;
   }
+  
   next();
 });
 
