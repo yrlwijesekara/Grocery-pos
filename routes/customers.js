@@ -129,6 +129,7 @@ router.post('/', authMiddleware, async (req, res) => {
     
     // Create new customer with enhanced data processing
     const customer = new Customer({
+      customerId: 'CUST' + Date.now() + Math.floor(Math.random() * 1000),
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email?.toLowerCase()?.trim(),
