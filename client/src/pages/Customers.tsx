@@ -129,7 +129,9 @@ const Customers: React.FC = () => {
       });
       
       if (response.data.length === 0) {
-        toast.info(`No customers found matching "${searchQuery.trim()}"`);
+        toast(`No customers found matching "${searchQuery.trim()}"`, {
+          icon: 'ℹ️',
+        });
       } else {
         toast.success(`Found ${response.data.length} customer${response.data.length > 1 ? 's' : ''}`);
       }
