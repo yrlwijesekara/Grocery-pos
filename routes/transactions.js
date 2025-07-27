@@ -150,6 +150,12 @@ router.post('/', authMiddleware, async (req, res) => {
     if (customer) {
       const customerDoc = await Customer.findById(customer);
       if (customerDoc) {
+        console.log(`Processing loyalty points for customer: ${customerDoc.firstName} ${customerDoc.lastName}`);
+        console.log(`Customer has membership number: ${customerDoc.loyaltyProgram.membershipNumber || 'No'}`);
+        console.log(`Transaction amount: $${finalAmount}`);
+        console.log(`Current tier: ${customerDoc.loyaltyProgram.tier}`);
+        console.log(`Current points before: ${customerDoc.loyaltyProgram.points}`);
+        
         customerDoc.purchaseHistory.totalSpent += finalAmount;
         customerDoc.purchaseHistory.totalTransactions += 1;
         customerDoc.purchaseHistory.averageTransactionAmount = 
@@ -157,12 +163,18 @@ router.post('/', authMiddleware, async (req, res) => {
         customerDoc.purchaseHistory.lastPurchaseDate = new Date();
         
         const pointsEarned = customerDoc.addPoints(finalAmount);
+        console.log(`Points earned: ${pointsEarned}`);
+        console.log(`Current points after: ${customerDoc.loyaltyProgram.points}`);
+        
         customerDoc.updateLoyaltyTier();
+        console.log(`Updated tier: ${customerDoc.loyaltyProgram.tier}`);
         
         transaction.loyaltyPointsEarned = pointsEarned;
         
         await customerDoc.save();
         await transaction.save();
+        
+        console.log(`Loyalty points processing complete for customer ${customerDoc.customerId}`);
       }
     }
     

@@ -131,6 +131,7 @@ userSchema.methods.updatePermissions = function(role) {
         canViewReports: true,
         canManageUsers: role === 'admin',
         canOverridePrices: true,
+        canManageLoyalty: true,
         maxDiscountPercent: 50
       };
       break;
@@ -142,6 +143,7 @@ userSchema.methods.updatePermissions = function(role) {
         canViewReports: true,
         canManageUsers: false,
         canOverridePrices: true,
+        canManageLoyalty: true,
         maxDiscountPercent: 20
       };
       break;
@@ -153,6 +155,7 @@ userSchema.methods.updatePermissions = function(role) {
         canViewReports: false,
         canManageUsers: false,
         canOverridePrices: false,
+        canManageLoyalty: true,
         maxDiscountPercent: 0
       };
   }

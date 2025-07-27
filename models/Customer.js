@@ -138,6 +138,11 @@ customerSchema.methods.updateLoyaltyTier = function() {
 };
 
 customerSchema.methods.addPoints = function(amount) {
+  // Only add points if customer is enrolled in loyalty program
+  if (!this.loyaltyProgram.membershipNumber) {
+    return 0;
+  }
+  
   // Get multiplier based on current tier
   let multiplier = 1;
   switch (this.loyaltyProgram.tier) {
@@ -154,7 +159,7 @@ customerSchema.methods.addPoints = function(amount) {
       multiplier = 1;
   }
   
-  const basePoints = Math.floor(amount * 0.01);
+  const basePoints = Math.floor(amount * 1); // 1 point per $1 spent (1% rate)
   const pointsEarned = Math.floor(basePoints * multiplier);
   this.loyaltyProgram.points += pointsEarned;
   return pointsEarned;
