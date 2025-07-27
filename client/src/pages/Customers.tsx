@@ -77,6 +77,9 @@ const Customers: React.FC = () => {
   const [pointsAdjustment, setPointsAdjustment] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [adjustmentType, setAdjustmentType] = useState<'add' | 'subtract' | 'set'>('add');
+  const [showEditCustomer, setShowEditCustomer] = useState(false);
+  const [editCustomer, setEditCustomer] = useState<Partial<Customer>>({});
+  const [editJoinLoyalty, setEditJoinLoyalty] = useState(false);
 
   const fetchCustomers = async () => {
     try {
@@ -237,6 +240,56 @@ const Customers: React.FC = () => {
       await loadData(); // Refresh customer data
     } catch (error: any) {
       const message = error.response?.data?.message || 'Operation failed';
+      toast.error(message);
+    }
+  };
+
+  const handleEditCustomer = (customer: Customer) => {
+    setEditCustomer({
+      ...customer,
+      address: customer.address || {
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+      },
+      preferences: customer.preferences || {
+        emailReceipts: true,
+        smsNotifications: false,
+        marketingEmails: false,
+      },
+    });
+    // Set loyalty status - if not currently enrolled, allow enrollment
+    setEditJoinLoyalty(!customer.loyaltyProgram?.membershipNumber);
+    setShowEditCustomer(true);
+  };
+
+  const handleUpdateCustomer = async () => {
+    if (!editCustomer._id) return;
+
+    try {
+      // Update customer details
+      await customerAPI.update(editCustomer._id, editCustomer);
+      
+      // Handle loyalty enrollment if customer is not already enrolled and wants to join
+      if (editJoinLoyalty && !editCustomer.loyaltyProgram?.membershipNumber) {
+        try {
+          await customerAPI.enrollLoyalty(editCustomer._id);
+          toast.success('Customer updated and enrolled in loyalty program successfully');
+        } catch (loyaltyError) {
+          console.error('Loyalty enrollment error:', loyaltyError);
+          toast.success('Customer updated successfully, but loyalty enrollment failed');
+        }
+      } else {
+        toast.success('Customer updated successfully');
+      }
+      
+      setShowEditCustomer(false);
+      setEditCustomer({});
+      setEditJoinLoyalty(false);
+      await loadData();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to update customer';
       toast.error(message);
     }
   };
@@ -455,7 +508,10 @@ const Customers: React.FC = () => {
                           {formatCurrency(customer.purchaseHistory.totalSpent)}
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small">
+                          <IconButton 
+                            size="small"
+                            onClick={() => handleEditCustomer(customer)}
+                          >
                             <Edit />
                           </IconButton>
                           <IconButton
@@ -672,6 +728,168 @@ const Customers: React.FC = () => {
             }
           >
             {loyaltyAction === 'enroll' ? 'Enroll Customer' : 'Apply Adjustment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={showEditCustomer} onClose={() => {
+        setShowEditCustomer(false);
+        setEditCustomer({});
+        setEditJoinLoyalty(false);
+      }} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Customer</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="First Name"
+                value={editCustomer.firstName || ''}
+                onChange={(e) => setEditCustomer({ ...editCustomer, firstName: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Last Name"
+                value={editCustomer.lastName || ''}
+                onChange={(e) => setEditCustomer({ ...editCustomer, lastName: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={editCustomer.email || ''}
+                onChange={(e) => setEditCustomer({ ...editCustomer, email: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Phone"
+                value={editCustomer.phone || ''}
+                onChange={(e) => setEditCustomer({ ...editCustomer, phone: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Street Address"
+                value={editCustomer.address?.street || ''}
+                onChange={(e) => setEditCustomer({ 
+                  ...editCustomer, 
+                  address: { ...editCustomer.address, street: e.target.value } as any
+                })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="City"
+                value={editCustomer.address?.city || ''}
+                onChange={(e) => setEditCustomer({ 
+                  ...editCustomer, 
+                  address: { ...editCustomer.address, city: e.target.value } as any
+                })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="State"
+                value={editCustomer.address?.state || ''}
+                onChange={(e) => setEditCustomer({ 
+                  ...editCustomer, 
+                  address: { ...editCustomer.address, state: e.target.value } as any
+                })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="ZIP Code"
+                value={editCustomer.address?.zipCode || ''}
+                onChange={(e) => setEditCustomer({ 
+                  ...editCustomer, 
+                  address: { ...editCustomer.address, zipCode: e.target.value } as any
+                })}
+              />
+            </Grid>
+            
+            {/* Loyalty Program Section */}
+            <Grid item xs={12}>
+              {editCustomer.loyaltyProgram?.membershipNumber ? (
+                <Box sx={{ p: 2, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Loyalty Program Status
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Membership Number: {editCustomer.loyaltyProgram.membershipNumber}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Current Points: {editCustomer.loyaltyProgram.points?.toLocaleString() || 0}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Tier: {editCustomer.loyaltyProgram.tier?.toUpperCase() || 'BRONZE'}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 1 }}>
+                    Customer is already enrolled in the loyalty program. Use the loyalty actions in the main table to manage points.
+                  </Typography>
+                </Box>
+              ) : (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editJoinLoyalty}
+                      onChange={(e) => setEditJoinLoyalty(e.target.checked)}
+                    />
+                  }
+                  label="Enroll in Loyalty Program"
+                />
+              )}
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={editCustomer.taxExempt || false}
+                    onChange={(e) => setEditCustomer({ ...editCustomer, taxExempt: e.target.checked })}
+                  />
+                }
+                label="Tax Exempt"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={editCustomer.isActive !== false}
+                    onChange={(e) => setEditCustomer({ ...editCustomer, isActive: e.target.checked })}
+                  />
+                }
+                label="Active Customer"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowEditCustomer(false);
+            setEditCustomer({});
+            setEditJoinLoyalty(false);
+          }}>Cancel</Button>
+          <Button
+            onClick={handleUpdateCustomer}
+            variant="contained"
+            disabled={!editCustomer.firstName || !editCustomer.lastName}
+          >
+            Update Customer
           </Button>
         </DialogActions>
       </Dialog>
