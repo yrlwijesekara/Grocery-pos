@@ -692,6 +692,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-*🚀 Empowering grocery stores with cutting-edge technology since 2024 🚀*
+*🚀 Empowering grocery stores with cutting-edge technology since 2025 🚀*
 
 </div>
