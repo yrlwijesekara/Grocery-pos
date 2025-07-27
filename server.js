@@ -39,6 +39,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/scales', require('./routes/scales'));
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/loyalty', require('./routes/loyalty'));
+app.use('/api/timetracking', require('./routes/timetracking'));
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);

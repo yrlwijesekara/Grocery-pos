@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const TimeEntry = require('../models/TimeEntry');
 const { authMiddleware, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -111,20 +112,45 @@ router.post('/clock-out', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Not currently clocked in' });
     }
     
-    user.shift.clockedIn = false;
-    user.shift.clockOutTime = new Date();
+    const clockOutTime = new Date();
+    const clockInTime = user.shift.clockInTime;
+    const hoursWorked = (clockOutTime - clockInTime) / (1000 * 60 * 60);
     
-    if (user.shift.clockInTime) {
-      const hoursWorked = (user.shift.clockOutTime - user.shift.clockInTime) / (1000 * 60 * 60);
-      user.shift.totalHours += hoursWorked;
-    }
+    // Update user shift
+    user.shift.clockedIn = false;
+    user.shift.clockOutTime = clockOutTime;
+    user.shift.totalHours += hoursWorked;
     
     await user.save();
     
+    // Create time entry record
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      await TimeEntry.findOneAndUpdate(
+        {
+          userId: user._id,
+          date: today
+        },
+        {
+          userId: user._id,
+          date: today,
+          clockIn: clockInTime,
+          clockOut: clockOutTime,
+          hoursWorked: parseFloat(hoursWorked.toFixed(2))
+        },
+        { upsert: true, new: true }
+      );
+    } catch (timeEntryError) {
+      console.error('Error creating time entry:', timeEntryError);
+      // Don't fail the clock-out if time entry creation fails
+    }
+    
     res.json({ 
       message: 'Clocked out successfully',
-      clockOutTime: user.shift.clockOutTime,
-      hoursWorked: user.shift.totalHours
+      clockOutTime: clockOutTime,
+      hoursWorked: parseFloat(hoursWorked.toFixed(2))
     });
   } catch (error) {
     console.error('Clock out error:', error);

@@ -46,6 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { text: 'Inventory', icon: <Inventory />, path: '/inventory', permission: 'canManageInventory' },
     { text: 'Customers', icon: <People />, path: '/customers' },
     { text: 'Loyalty Program', icon: <Stars />, path: '/loyalty', permission: 'canManageUsers' },
+    { text: 'Time Tracking', icon: <Schedule />, path: '/timetracking' },
     { text: 'Reports', icon: <Assessment />, path: '/reports', permission: 'canViewReports' },
     { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];

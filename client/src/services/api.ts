@@ -182,4 +182,25 @@ export const loyaltyAPI = {
   getTiers: () => api.get('/loyalty/tiers'),
 };
 
+// Time Tracking APIs
+export const timeTrackingAPI = {
+  getEmployeeStatus: () => api.get('/timetracking/status'),
+  
+  getWorkHistory: (params: any) => api.get('/timetracking/history', { params }),
+  
+  getEmployeeDetails: (employeeId: string, params: any) =>
+    api.get(`/timetracking/employee/${employeeId}`, { params }),
+  
+  getAnalytics: (period: string) =>
+    api.get('/timetracking/analytics', { params: { period } }),
+  
+  adjustTime: (data: {
+    employeeId: string;
+    date: string;
+    clockIn: string;
+    clockOut: string;
+    reason: string;
+  }) => api.post('/timetracking/adjust', data),
+};
+
 export default api;
