@@ -55,13 +55,16 @@ router.get('/customer/:customerId', authMiddleware, async (req, res) => {
 });
 
 // Manual points adjustment (for customer service)
-router.post('/adjust-points', authMiddleware, checkPermission('canManageUsers'), async (req, res) => {
+router.post('/adjust-points', authMiddleware, async (req, res) => {
   try {
     const { customerId, pointsAdjustment, reason, type } = req.body;
     
-    if (!customerId || !pointsAdjustment || !reason || !type) {
+    console.log('Loyalty points adjustment request:', { customerId, pointsAdjustment, reason, type });
+    
+    if (!customerId || pointsAdjustment === undefined || pointsAdjustment === null || !reason || !type) {
       return res.status(400).json({ 
-        message: 'Customer ID, points adjustment, reason, and type are required' 
+        message: 'Customer ID, points adjustment, reason, and type are required',
+        received: { customerId, pointsAdjustment, reason, type }
       });
     }
 
@@ -73,27 +76,38 @@ router.post('/adjust-points', authMiddleware, checkPermission('canManageUsers'),
 
     const customer = await Customer.findOne({ customerId });
     if (!customer) {
+      console.log(`Customer not found: ${customerId}`);
       return res.status(404).json({ message: 'Customer not found' });
     }
 
-    const oldPoints = customer.loyaltyProgram.points;
+    if (!customer.loyaltyProgram.membershipNumber) {
+      console.log(`Customer ${customerId} is not enrolled in loyalty program`);
+      return res.status(400).json({ message: 'Customer is not enrolled in loyalty program' });
+    }
+
+    const oldPoints = customer.loyaltyProgram.points || 0;
+    const adjustmentValue = parseInt(pointsAdjustment);
     let newPoints;
+
+    console.log(`Processing adjustment: ${oldPoints} points -> ${type} ${adjustmentValue}`);
 
     switch (type) {
       case 'add':
-        newPoints = oldPoints + Math.abs(pointsAdjustment);
+        newPoints = oldPoints + Math.abs(adjustmentValue);
         break;
       case 'subtract':
-        newPoints = Math.max(0, oldPoints - Math.abs(pointsAdjustment));
+        newPoints = Math.max(0, oldPoints - Math.abs(adjustmentValue));
         break;
       case 'set':
-        newPoints = Math.max(0, pointsAdjustment);
+        newPoints = Math.max(0, adjustmentValue);
         break;
     }
 
     customer.loyaltyProgram.points = newPoints;
     customer.updateLoyaltyTier();
     await customer.save();
+    
+    console.log(`Points adjusted successfully: ${oldPoints} -> ${newPoints}`);
 
     // Log the adjustment
     console.log(`Points adjustment: ${customer.customerId} - ${oldPoints} → ${newPoints} (${type}: ${pointsAdjustment}) - Reason: ${reason} - By: ${req.user.employeeId}`);
@@ -111,7 +125,11 @@ router.post('/adjust-points', authMiddleware, checkPermission('canManageUsers'),
     });
   } catch (error) {
     console.error('Error adjusting points:', error);
-    res.status(500).json({ message: 'Failed to adjust points' });
+    res.status(500).json({ 
+      message: 'Failed to adjust points',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
