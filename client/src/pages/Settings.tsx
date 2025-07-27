@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -26,6 +26,14 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  CircularProgress,
 } from '@mui/material';
 import { 
   Settings as SettingsIcon, 
@@ -40,18 +48,91 @@ import {
   Backup,
   Update,
   AdminPanelSettings,
-  Group,
   Assessment,
   ColorLens,
   Language,
   Schedule,
   LocalShipping,
-  AccountBalance,
-  Loyalty
+  Loyalty,
+  History,
+  ShoppingCart,
+  Refresh
 } from '@mui/icons-material';
+
+interface Transaction {
+  _id: string;
+  transactionId: string;
+  customer?: {
+    firstName: string;
+    lastName: string;
+  };
+  cashier: {
+    firstName: string;
+    lastName: string;
+  };
+  items: Array<{
+    name: string;
+    quantity: number;
+    weight?: number;
+  }>;
+  totalAmount: number;
+  createdAt: string;
+}
 
 const Settings: React.FC = () => {
   const [showFullSettings, setShowFullSettings] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [transactionError, setTransactionError] = useState<string | null>(null);
+
+  // Fetch recent transactions when full settings dialog opens
+  useEffect(() => {
+    if (showFullSettings) {
+      fetchRecentTransactions();
+    }
+  }, [showFullSettings]);
+
+  const fetchRecentTransactions = async () => {
+    setLoadingTransactions(true);
+    setTransactionError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/transactions?limit=10&page=1', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions');
+      }
+      
+      const data = await response.json();
+      setTransactions(data.transactions || []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setTransactionError('Failed to load transaction history');
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatItems = (items: Transaction['items']) => {
+    return items.map(item => {
+      const quantity = item.weight ? `${item.weight}lb` : `${item.quantity}`;
+      return `${item.name} (${quantity})`;
+    }).join(', ');
+  };
+
+  const getCustomerName = (customer?: Transaction['customer']) => {
+    if (!customer) return 'Guest Customer';
+    return `${customer.firstName} ${customer.lastName}`;
+  };
 
   return (
     <Box>
@@ -287,37 +368,6 @@ const Settings: React.FC = () => {
               </AccordionDetails>
             </Accordion>
 
-            {/* Tax Settings */}
-            <Accordion>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <AccountBalance />
-                  <Typography variant="h6">Tax Configuration</Typography>
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Sales Tax Rate (%)" defaultValue="8.25" type="number" />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Tax ID Number" defaultValue="TX123456789" />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <List>
-                      <ListItem>
-                        <ListItemText primary="Tax-inclusive pricing" secondary="Display prices with tax included" />
-                        <Switch />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemText primary="Apply tax to all items" secondary="Automatically apply tax to taxable items" />
-                        <Switch defaultChecked />
-                      </ListItem>
-                    </List>
-                  </Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
 
             {/* Loyalty Program */}
             <Accordion>
@@ -407,33 +457,84 @@ const Settings: React.FC = () => {
               </AccordionDetails>
             </Accordion>
 
-            {/* User Management */}
+            {/* Customer Checkout History */}
             <Accordion>
               <AccordionSummary expandIcon={<ExpandMore />}>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Group />
-                  <Typography variant="h6">User Management</Typography>
+                  <History />
+                  <Typography variant="h6">Customer Checkout History</Typography>
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
-                <List>
-                  <ListItem>
-                    <ListItemText primary="Require password changes every 90 days" />
-                    <Switch />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText primary="Enable two-factor authentication" />
-                    <Switch />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText primary="Auto-lock after failed login attempts" />
-                    <Switch defaultChecked />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText primary="Log user activities" />
-                    <Switch defaultChecked />
-                  </ListItem>
-                </List>
+                <Box sx={{ mb: 2 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="subtitle2">
+                      Recent Customer Transactions
+                    </Typography>
+                    <Button 
+                      size="small" 
+                      startIcon={<Refresh />}
+                      onClick={fetchRecentTransactions}
+                      disabled={loadingTransactions}
+                    >
+                      Refresh
+                    </Button>
+                  </Box>
+                  
+                  {transactionError && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      {transactionError}
+                    </Alert>
+                  )}
+                  
+                  <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+                    <Table stickyHeader size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Date</TableCell>
+                          <TableCell>Customer</TableCell>
+                          <TableCell>Transaction ID</TableCell>
+                          <TableCell align="right">Amount</TableCell>
+                          <TableCell>Items Purchased</TableCell>
+                          <TableCell>Cashier</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {loadingTransactions ? (
+                          <TableRow>
+                            <TableCell colSpan={6} align="center">
+                              <Box display="flex" justifyContent="center" alignItems="center" py={3}>
+                                <CircularProgress size={24} sx={{ mr: 2 }} />
+                                <Typography>Loading transactions...</Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ) : transactions.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} align="center">
+                              <Typography color="text.secondary" py={3}>
+                                No recent transactions found
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          transactions.map((transaction) => (
+                            <TableRow key={transaction._id}>
+                              <TableCell>{formatDate(transaction.createdAt)}</TableCell>
+                              <TableCell>{getCustomerName(transaction.customer)}</TableCell>
+                              <TableCell>{transaction.transactionId}</TableCell>
+                              <TableCell align="right">${transaction.totalAmount.toFixed(2)}</TableCell>
+                              <TableCell sx={{ maxWidth: 300, wordWrap: 'break-word' }}>
+                                {formatItems(transaction.items)}
+                              </TableCell>
+                              <TableCell>{transaction.cashier.firstName} {transaction.cashier.lastName}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
               </AccordionDetails>
             </Accordion>
 
