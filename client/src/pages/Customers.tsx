@@ -106,12 +106,13 @@ const Customers: React.FC = () => {
 
   const searchCustomers = async () => {
     if (!searchQuery.trim()) {
-      fetchCustomers();
+      await fetchCustomers();
       return;
     }
     
     try {
-      const response = await customerAPI.search({ query: searchQuery });
+      setLoading(true);
+      const response = await customerAPI.search({ query: searchQuery.trim() });
       setCustomers(response.data);
       
       // Update stats for search results
@@ -126,9 +127,17 @@ const Customers: React.FC = () => {
         goldMembers,
         platinumMembers,
       });
+      
+      if (response.data.length === 0) {
+        toast.info(`No customers found matching "${searchQuery.trim()}"`);
+      } else {
+        toast.success(`Found ${response.data.length} customer${response.data.length > 1 ? 's' : ''}`);
+      }
     } catch (error: any) {
       console.error('Error searching customers:', error);
       toast.error('Failed to search customers');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -411,9 +420,12 @@ const Customers: React.FC = () => {
                   {searchQuery && (
                     <Button
                       variant="outlined"
-                      onClick={() => {
+                      onClick={async () => {
                         setSearchQuery('');
-                        fetchCustomers();
+                        setLoading(true);
+                        await fetchCustomers();
+                        setLoading(false);
+                        toast.success('Search cleared, showing all customers');
                       }}
                     >
                       Clear

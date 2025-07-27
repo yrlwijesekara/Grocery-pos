@@ -16,13 +16,35 @@ router.get('/search', authMiddleware, async (req, res) => {
     } else if (email) {
       searchCriteria.email = { $regex: email, $options: 'i' };
     } else if (query) {
+      // Create a compound query to search across multiple fields
+      const queryRegex = { $regex: query, $options: 'i' };
+      const phoneQuery = query.replace(/\D/g, ''); // Remove non-digits for phone search
+      
       searchCriteria.$or = [
-        { firstName: { $regex: query, $options: 'i' } },
-        { lastName: { $regex: query, $options: 'i' } },
-        { phone: { $regex: query.replace(/\D/g, ''), $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
-        { 'loyaltyProgram.membershipNumber': { $regex: query, $options: 'i' } }
+        { firstName: queryRegex },
+        { lastName: queryRegex },
+        { customerId: queryRegex },
+        { email: queryRegex },
+        { 'loyaltyProgram.membershipNumber': queryRegex }
       ];
+      
+      // Add phone search only if there are digits in the query
+      if (phoneQuery.length > 0) {
+        searchCriteria.$or.push({ phone: { $regex: phoneQuery, $options: 'i' } });
+      }
+      
+      // Add full name search (firstName + lastName combination)
+      if (query.includes(' ')) {
+        const nameParts = query.trim().split(/\s+/);
+        if (nameParts.length >= 2) {
+          searchCriteria.$or.push({
+            $and: [
+              { firstName: { $regex: nameParts[0], $options: 'i' } },
+              { lastName: { $regex: nameParts.slice(1).join(' '), $options: 'i' } }
+            ]
+          });
+        }
+      }
     }
     
     const customers = await Customer.find(searchCriteria)
