@@ -68,8 +68,10 @@ router.get('/history', authMiddleware, async (req, res) => {
 
       const timeEntries = await TimeEntry.find(timeQuery).sort({ date: -1 });
       
-      const totalHours = timeEntries.reduce((sum, entry) => sum + (entry.hoursWorked || 0), 0);
-      const totalDays = timeEntries.length;
+      // Calculate statistics using totalHours from time entries
+      const completedEntries = timeEntries.filter(entry => entry.totalHours > 0);
+      const totalHours = completedEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
+      const totalDays = completedEntries.length;
       const averageHours = totalDays > 0 ? totalHours / totalDays : 0;
 
       return {
@@ -85,7 +87,7 @@ router.get('/history', authMiddleware, async (req, res) => {
           totalHours: parseFloat(totalHours.toFixed(2)),
           totalDays,
           averageHours: parseFloat(averageHours.toFixed(2)),
-          currentWeekHours: calculateCurrentWeekHours(timeEntries),
+          currentWeekHours: calculateCurrentWeekHours(completedEntries),
           lastClockIn: employee.shift.clockInTime,
           lastClockOut: employee.shift.clockOutTime
         },
@@ -186,6 +188,9 @@ router.get('/analytics', authMiddleware, async (req, res) => {
       date: { $gte: startDate, $lte: endDate }
     }).populate('userId', 'employeeId firstName lastName role');
 
+    // Filter to only entries with total hours for analytics
+    const completedTimeEntries = timeEntries.filter(entry => entry.totalHours > 0);
+    
     // Calculate analytics
     const analytics = {
       period: {
@@ -194,9 +199,9 @@ router.get('/analytics', authMiddleware, async (req, res) => {
         endDate
       },
       summary: {
-        totalHours: timeEntries.reduce((sum, entry) => sum + (entry.hoursWorked || 0), 0),
-        totalEntries: timeEntries.length,
-        uniqueEmployees: [...new Set(timeEntries.map(entry => entry.userId._id.toString()))].length,
+        totalHours: completedTimeEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0),
+        totalEntries: completedTimeEntries.length,
+        uniqueEmployees: [...new Set(completedTimeEntries.map(entry => entry.userId._id.toString()))].length,
         averageHoursPerDay: 0,
         totalLaborCost: 0 // Can be calculated with hourly rates
       },
@@ -209,8 +214,8 @@ router.get('/analytics', authMiddleware, async (req, res) => {
     const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
     analytics.summary.averageHoursPerDay = daysDiff > 0 ? analytics.summary.totalHours / daysDiff : 0;
 
-    // Group by employee
-    timeEntries.forEach(entry => {
+    // Group by employee (using completed entries only)
+    completedTimeEntries.forEach(entry => {
       const empId = entry.userId.employeeId;
       if (!analytics.byEmployee[empId]) {
         analytics.byEmployee[empId] = {
@@ -225,7 +230,7 @@ router.get('/analytics', authMiddleware, async (req, res) => {
           averageHours: 0
         };
       }
-      analytics.byEmployee[empId].totalHours += entry.hoursWorked || 0;
+      analytics.byEmployee[empId].totalHours += entry.totalHours || 0;
       analytics.byEmployee[empId].totalDays += 1;
     });
 
@@ -263,7 +268,7 @@ router.post('/adjust', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Clock out time must be after clock in time' });
     }
 
-    // Create or update time entry
+    // Create or update time entry with single session adjustment
     const timeEntry = await TimeEntry.findOneAndUpdate(
       {
         userId: employee._id,
@@ -272,9 +277,13 @@ router.post('/adjust', authMiddleware, async (req, res) => {
       {
         userId: employee._id,
         date: new Date(date),
-        clockIn: clockInTime,
-        clockOut: clockOutTime,
-        hoursWorked,
+        sessions: [{
+          clockIn: clockInTime,
+          clockOut: clockOutTime,
+          hoursWorked,
+          sessionNumber: 1
+        }],
+        totalHours: hoursWorked,
         adjustedBy: req.user._id,
         adjustmentReason: reason,
         isAdjusted: true
@@ -282,7 +291,7 @@ router.post('/adjust', authMiddleware, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    console.log(`Time adjustment made by ${req.user.employeeId} for ${employeeId}: ${hoursWorked} hours on ${date}. Reason: ${reason}`);
+    console.log(`Time adjustment made by ${req.user.employeeId} for ${employeeId}: ${hoursWorked.toFixed(2)} hours on ${date}. Reason: ${reason}`);
 
     res.json({
       message: 'Time entry adjusted successfully',
@@ -300,30 +309,37 @@ function calculateCurrentWeekHours(timeEntries) {
   const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
   
   return timeEntries
-    .filter(entry => new Date(entry.date) >= startOfWeek)
-    .reduce((sum, entry) => sum + (entry.hoursWorked || 0), 0);
+    .filter(entry => entry.totalHours > 0 && new Date(entry.date) >= startOfWeek)
+    .reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
 }
 
 function calculateAttendanceMetrics(timeEntries) {
-  const totalHours = timeEntries.reduce((sum, entry) => sum + (entry.hoursWorked || 0), 0);
-  const totalDays = timeEntries.length;
+  // Only use entries with total hours for calculations
+  const completedEntries = timeEntries.filter(entry => entry.totalHours > 0);
+  const totalHours = completedEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
+  const totalDays = completedEntries.length;
   const averageHours = totalDays > 0 ? totalHours / totalDays : 0;
   
-  // Calculate on-time percentage (assuming 8 AM start time)
-  const onTimeEntries = timeEntries.filter(entry => {
-    const clockInHour = new Date(entry.clockIn).getHours();
-    return clockInHour <= 8; // On time if clocked in by 8 AM
+  // Calculate on-time percentage (assuming 8 AM start time) - check first session
+  const onTimeEntries = completedEntries.filter(entry => {
+    if (!entry.sessions || entry.sessions.length === 0) return false;
+    const firstSession = entry.sessions[0];
+    if (!firstSession.clockIn) return false;
+    const clockInHour = new Date(firstSession.clockIn).getHours();
+    return clockInHour <= 8; // On time if first session started by 8 AM
   });
   
   const onTimePercentage = totalDays > 0 ? (onTimeEntries.length / totalDays) * 100 : 0;
+
+  const hoursWorkedArray = completedEntries.map(entry => entry.totalHours || 0);
 
   return {
     totalHours: parseFloat(totalHours.toFixed(2)),
     totalDays,
     averageHours: parseFloat(averageHours.toFixed(2)),
     onTimePercentage: parseFloat(onTimePercentage.toFixed(1)),
-    longestShift: Math.max(...timeEntries.map(entry => entry.hoursWorked || 0)),
-    shortestShift: Math.min(...timeEntries.map(entry => entry.hoursWorked || 0))
+    longestShift: hoursWorkedArray.length > 0 ? Math.max(...hoursWorkedArray) : 0,
+    shortestShift: hoursWorkedArray.length > 0 ? Math.min(...hoursWorkedArray) : 0
   };
 }
 

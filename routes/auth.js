@@ -87,12 +87,50 @@ router.post('/clock-in', authMiddleware, async (req, res) => {
     if (user.shift.clockedIn) {
       return res.status(400).json({ message: 'Already clocked in' });
     }
+
+    const clockInTime = new Date();
     
     user.shift.clockedIn = true;
-    user.shift.clockInTime = new Date();
+    user.shift.clockInTime = clockInTime;
     user.shift.clockOutTime = null;
     
     await user.save();
+
+    // Create or update time entry record for today
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      let timeEntry = await TimeEntry.findOne({
+        userId: user._id,
+        date: today
+      });
+
+      if (timeEntry) {
+        // Check if there's already an open session
+        const currentSession = timeEntry.getCurrentSession();
+        if (currentSession) {
+          return res.status(400).json({ message: 'Already clocked in - there is an open session' });
+        }
+        // Add new session to existing entry
+        timeEntry.addSession(clockInTime);
+      } else {
+        // Create new time entry with first session
+        timeEntry = new TimeEntry({
+          userId: user._id,
+          date: today,
+          sessions: [{
+            clockIn: clockInTime,
+            sessionNumber: 1
+          }]
+        });
+      }
+      
+      await timeEntry.save();
+    } catch (timeEntryError) {
+      console.error('Error creating initial time entry:', timeEntryError);
+      // Don't fail the clock-in if time entry creation fails
+    }
     
     res.json({ 
       message: 'Clocked in successfully',
@@ -113,44 +151,45 @@ router.post('/clock-out', authMiddleware, async (req, res) => {
     }
     
     const clockOutTime = new Date();
-    const clockInTime = user.shift.clockInTime;
-    const hoursWorked = (clockOutTime - clockInTime) / (1000 * 60 * 60);
     
     // Update user shift
     user.shift.clockedIn = false;
     user.shift.clockOutTime = clockOutTime;
-    user.shift.totalHours += hoursWorked;
     
-    await user.save();
-    
-    // Create time entry record
+    // Find and update time entry record
+    let sessionHours = 0;
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      await TimeEntry.findOneAndUpdate(
-        {
-          userId: user._id,
-          date: today
-        },
-        {
-          userId: user._id,
-          date: today,
-          clockIn: clockInTime,
-          clockOut: clockOutTime,
-          hoursWorked: parseFloat(hoursWorked.toFixed(2))
-        },
-        { upsert: true, new: true }
-      );
+      const timeEntry = await TimeEntry.findOne({
+        userId: user._id,
+        date: today
+      });
+
+      if (timeEntry) {
+        const closedSession = timeEntry.closeCurrentSession(clockOutTime);
+        if (closedSession) {
+          sessionHours = closedSession.hoursWorked;
+          await timeEntry.save();
+        }
+      }
     } catch (timeEntryError) {
-      console.error('Error creating time entry:', timeEntryError);
-      // Don't fail the clock-out if time entry creation fails
+      console.error('Error updating time entry:', timeEntryError);
+      // Calculate session hours manually if time entry update fails
+      if (user.shift.clockInTime) {
+        sessionHours = (clockOutTime - user.shift.clockInTime) / (1000 * 60 * 60);
+      }
     }
+
+    // Update user's total hours (but don't use cumulative approach)
+    // Reset totalHours and recalculate from TimeEntry if needed
+    await user.save();
     
     res.json({ 
       message: 'Clocked out successfully',
       clockOutTime: clockOutTime,
-      hoursWorked: parseFloat(hoursWorked.toFixed(2))
+      sessionHours: parseFloat(sessionHours.toFixed(2))
     });
   } catch (error) {
     console.error('Clock out error:', error);

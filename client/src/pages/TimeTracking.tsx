@@ -170,9 +170,13 @@ const TimeTracking: React.FC = () => {
     return `${h}h ${m}m`;
   };
 
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString: string | null | undefined) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      return '-';
+    }
   };
 
   // Temporarily remove permission check for testing
@@ -428,7 +432,7 @@ const TimeTracking: React.FC = () => {
                           <TableCell>
                             {record.employee.currentStatus === 'clocked-in' ? 
                               `In: ${formatTime(record.stats.lastClockIn)}` :
-                              `Out: ${formatTime(record.stats.lastClockOut)}`
+                              record.stats.lastClockOut ? `Out: ${formatTime(record.stats.lastClockOut)}` : '-'
                             }
                           </TableCell>
                         </TableRow>
