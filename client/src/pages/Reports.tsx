@@ -20,6 +20,9 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  Chip,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Assessment,
@@ -27,6 +30,11 @@ import {
   ShoppingCart,
   Inventory,
   Refresh,
+  Star,
+  EmojiEvents,
+  Whatshot,
+  ArrowUpward,
+  ArrowDownward,
 } from '@mui/icons-material';
 import { reportsAPI } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -64,6 +72,8 @@ const Reports: React.FC = () => {
   const [employeePerformance, setEmployeePerformance] = useState<any[]>([]);
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [productSortBy, setProductSortBy] = useState('totalRevenue');
+  const [productSortOrder, setProductSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const fetchDailySales = async (date: string) => {
     try {
@@ -127,6 +137,34 @@ const Reports: React.FC = () => {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setSelectedTab(newValue);
+  };
+
+  const sortedProductPerformance = [...productPerformance].sort((a, b) => {
+    const aValue = a[productSortBy];
+    const bValue = b[productSortBy];
+    
+    if (productSortOrder === 'desc') {
+      return bValue - aValue;
+    } else {
+      return aValue - bValue;
+    }
+  });
+
+  const handleProductSort = (field: string) => {
+    if (productSortBy === field) {
+      setProductSortOrder(productSortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      setProductSortBy(field);
+      setProductSortOrder('desc');
+    }
+  };
+
+  const getPerformanceRank = (index: number, total: number) => {
+    if (index === 0) return { label: '#1 Best Seller', color: 'primary', icon: <EmojiEvents /> };
+    if (index === 1) return { label: '#2 Top Performer', color: 'secondary', icon: <Star /> };
+    if (index === 2) return { label: '#3 High Seller', color: 'warning', icon: <Whatshot /> };
+    if (index < total * 0.2) return { label: 'Top 20%', color: 'success', icon: null };
+    return null;
   };
 
   if (!user?.permissions.canViewReports) {
@@ -258,33 +296,158 @@ const Reports: React.FC = () => {
         </Box>
 
         <TabPanel value={selectedTab} index={0}>
-          <Typography variant="h6" gutterBottom>
-            Top Performing Products
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Typography variant="h6">
+              Product Performance - Highest Sold Products
+            </Typography>
+            <Box display="flex" gap={2} alignItems="center">
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Sort By</InputLabel>
+                <Select
+                  value={productSortBy}
+                  onChange={(e) => setProductSortBy(e.target.value)}
+                  label="Sort By"
+                >
+                  <MenuItem value="totalRevenue">Revenue</MenuItem>
+                  <MenuItem value="totalQuantity">Quantity Sold</MenuItem>
+                  <MenuItem value="totalTransactions">Transactions</MenuItem>
+                  <MenuItem value="averagePrice">Avg Price</MenuItem>
+                </Select>
+              </FormControl>
+              <Tooltip title={`Sort ${productSortOrder === 'desc' ? 'Ascending' : 'Descending'}`}>
+                <IconButton onClick={() => setProductSortOrder(productSortOrder === 'desc' ? 'asc' : 'desc')}>
+                  {productSortOrder === 'desc' ? <ArrowDownward /> : <ArrowUpward />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+          
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell>Rank</TableCell>
                   <TableCell>Product</TableCell>
                   <TableCell>Category</TableCell>
-                  <TableCell align="right">Quantity Sold</TableCell>
-                  <TableCell align="right">Revenue</TableCell>
-                  <TableCell align="right">Transactions</TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      onClick={() => handleProductSort('totalQuantity')}
+                      endIcon={productSortBy === 'totalQuantity' ? (productSortOrder === 'desc' ? <ArrowDownward /> : <ArrowUpward />) : null}
+                    >
+                      Quantity Sold
+                    </Button>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      onClick={() => handleProductSort('totalRevenue')}
+                      endIcon={productSortBy === 'totalRevenue' ? (productSortOrder === 'desc' ? <ArrowDownward /> : <ArrowUpward />) : null}
+                    >
+                      Revenue
+                    </Button>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      onClick={() => handleProductSort('totalTransactions')}
+                      endIcon={productSortBy === 'totalTransactions' ? (productSortOrder === 'desc' ? <ArrowDownward /> : <ArrowUpward />) : null}
+                    >
+                      Transactions
+                    </Button>
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {productPerformance.map((product, index) => (
-                  <TableRow key={product._id}>
-                    <TableCell>{product.name}</TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell align="right">{product.totalQuantity}</TableCell>
-                    <TableCell align="right">{formatCurrency(product.totalRevenue)}</TableCell>
-                    <TableCell align="right">{product.totalTransactions}</TableCell>
-                  </TableRow>
-                ))}
+                {sortedProductPerformance.map((product, index) => {
+                  const rank = getPerformanceRank(index, sortedProductPerformance.length);
+                  return (
+                    <TableRow 
+                      key={product._id}
+                      sx={{ 
+                        backgroundColor: index < 3 ? 'rgba(25, 118, 210, 0.04)' : 'inherit',
+                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                      }}
+                    >
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Typography variant="body2" fontWeight="bold">
+                            #{index + 1}
+                          </Typography>
+                          {rank && (
+                            <Tooltip title={rank.label}>
+                              <Chip
+                                icon={rank.icon || undefined}
+                                label={rank.label}
+                                color={rank.color as any}
+                                size="small"
+                                variant={index < 3 ? 'filled' : 'outlined'}
+                              />
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2" fontWeight={index < 3 ? 'bold' : 'normal'}>
+                            {product.name}
+                          </Typography>
+                          {index < 3 && (
+                            <Typography variant="caption" color="primary">
+                              Top {index + 1} Seller
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={product.category} 
+                          size="small" 
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography 
+                          variant="body2" 
+                          fontWeight={productSortBy === 'totalQuantity' ? 'bold' : 'normal'}
+                          color={index < 3 && productSortBy === 'totalQuantity' ? 'primary' : 'inherit'}
+                        >
+                          {product.totalQuantity}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography 
+                          variant="body2" 
+                          fontWeight={productSortBy === 'totalRevenue' ? 'bold' : 'normal'}
+                          color={index < 3 && productSortBy === 'totalRevenue' ? 'primary' : 'inherit'}
+                        >
+                          {formatCurrency(product.totalRevenue)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography 
+                          variant="body2" 
+                          fontWeight={productSortBy === 'totalTransactions' ? 'bold' : 'normal'}
+                          color={index < 3 && productSortBy === 'totalTransactions' ? 'primary' : 'inherit'}
+                        >
+                          {product.totalTransactions}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
+          
+          {sortedProductPerformance.length > 0 && (
+            <Box mt={2} p={2} bgcolor="rgba(25, 118, 210, 0.04)" borderRadius={1}>
+              <Typography variant="body2" color="textSecondary">
+                <strong>Performance Summary:</strong> Showing {sortedProductPerformance.length} products sorted by {productSortBy.replace(/([A-Z])/g, ' $1').toLowerCase()}.
+                Top 3 products are highlighted with performance badges.
+              </Typography>
+            </Box>
+          )}
         </TabPanel>
 
         <TabPanel value={selectedTab} index={1}>
