@@ -283,7 +283,7 @@ const LoyaltyCard: React.FC<LoyaltyCardProps> = ({
         </DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Each point is worth $0.01. You have {loyaltyData?.customer.loyaltyProgram.points} points available.
+            Each point is worth Rs 0.01. You have {loyaltyData?.customer.loyaltyProgram.points} points available.
           </Alert>
           
           <TextField

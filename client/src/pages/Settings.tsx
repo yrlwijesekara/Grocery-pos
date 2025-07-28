@@ -380,12 +380,12 @@ const Settings: React.FC = () => {
               <AccordionDetails>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Points per $1 spent" defaultValue="1" type="number" />
+                    <TextField fullWidth label="Points per Rs 1 spent" defaultValue="1" type="number" />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField 
                       fullWidth 
-                      label="Point redemption value ($)" 
+                      label="Point redemption value (Rs)" 
                       defaultValue="0.01" 
                       type="number" 
                       inputProps={{ step: 0.01 }}
@@ -523,7 +523,7 @@ const Settings: React.FC = () => {
                               <TableCell>{formatDate(transaction.createdAt)}</TableCell>
                               <TableCell>{getCustomerName(transaction.customer)}</TableCell>
                               <TableCell>{transaction.transactionId}</TableCell>
-                              <TableCell align="right">${transaction.totalAmount.toFixed(2)}</TableCell>
+                              <TableCell align="right">Rs {transaction.totalAmount.toFixed(2)}</TableCell>
                               <TableCell sx={{ maxWidth: 300, wordWrap: 'break-word' }}>
                                 {formatItems(transaction.items)}
                               </TableCell>

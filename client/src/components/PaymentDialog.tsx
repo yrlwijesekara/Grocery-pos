@@ -351,7 +351,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
                             amount: remainingBalance + amount 
                           }))}
                         >
-                          ${amount}
+                          Rs {amount}
                         </Button>
                       ))}
                       <Button
