@@ -165,28 +165,66 @@ router.get('/analytics', authMiddleware, async (req, res) => {
   try {
     const { period = 'week' } = req.query; // week, month, quarter
     
+    // First, let's check what data exists in the database
+    const allTimeEntries = await TimeEntry.find().limit(5).sort({ date: -1 });
+    console.log('\n=== All Time Entries Sample ===');
+    console.log('Total entries in DB:', await TimeEntry.countDocuments());
+    allTimeEntries.forEach(entry => {
+      console.log(`Date: ${entry.date.toISOString()}, Total Hours: ${entry.totalHours}`);
+    });
+    console.log('===============================\n');
+    
     let startDate, endDate;
     const now = new Date();
     
     switch (period) {
       case 'week':
-        startDate = new Date(now.setDate(now.getDate() - now.getDay()));
-        endDate = new Date(now.setDate(startDate.getDate() + 6));
+        // Calculate start of current week (Sunday)
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - dayOfWeek);
+        startDate.setHours(0, 0, 0, 0); // Start of day
+        
+        // Calculate end of current week (Saturday)
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+        endDate.setHours(23, 59, 59, 999); // End of day
         break;
       case 'month':
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
         break;
       case 'quarter':
         const quarter = Math.floor(now.getMonth() / 3);
         startDate = new Date(now.getFullYear(), quarter * 3, 1);
+        startDate.setHours(0, 0, 0, 0);
         endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+        endDate.setHours(23, 59, 59, 999);
         break;
     }
 
+    // Debug logging
+    console.log(`\n=== Time Tracking Analytics Debug (${period}) ===`);
+    console.log('Period:', period);
+    console.log('Start Date:', startDate.toISOString());
+    console.log('End Date:', endDate.toISOString());
+    
     const timeEntries = await TimeEntry.find({
       date: { $gte: startDate, $lte: endDate }
     }).populate('userId', 'employeeId firstName lastName role');
+    
+    console.log('Found Time Entries:', timeEntries.length);
+    if (timeEntries.length > 0) {
+      console.log('Sample entries:', timeEntries.slice(0, 3).map(entry => ({
+        date: entry.date,
+        totalHours: entry.totalHours,
+        user: entry.userId?.firstName + ' ' + entry.userId?.lastName
+      })));
+    }
+    console.log('==========================================\n');
 
     // Filter to only entries with total hours for analytics
     const completedTimeEntries = timeEntries.filter(entry => entry.totalHours > 0);
@@ -305,8 +343,11 @@ router.post('/adjust', authMiddleware, async (req, res) => {
 
 // Helper functions
 function calculateCurrentWeekHours(timeEntries) {
-  const now = new Date();
-  const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - dayOfWeek);
+  startOfWeek.setHours(0, 0, 0, 0); // Start of day
   
   return timeEntries
     .filter(entry => entry.totalHours > 0 && new Date(entry.date) >= startOfWeek)
@@ -342,5 +383,58 @@ function calculateAttendanceMetrics(timeEntries) {
     shortestShift: hoursWorkedArray.length > 0 ? Math.min(...hoursWorkedArray) : 0
   };
 }
+
+// Test route to create sample time entries (for debugging)
+router.post('/create-sample-data', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findOne({ isActive: true });
+    if (!user) {
+      return res.status(404).json({ message: 'No active user found' });
+    }
+
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    
+    // Create entries for this week
+    const sampleEntries = [
+      {
+        userId: user._id,
+        date: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+        sessions: [{
+          clockIn: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0, 0),
+          clockOut: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 17, 0, 0),
+          hoursWorked: 8,
+          sessionNumber: 1
+        }],
+        totalHours: 8
+      },
+      {
+        userId: user._id,
+        date: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate()),
+        sessions: [{
+          clockIn: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 8, 30, 0),
+          clockOut: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 16, 30, 0),
+          hoursWorked: 8,
+          sessionNumber: 1
+        }],
+        totalHours: 8
+      }
+    ];
+
+    for (const entryData of sampleEntries) {
+      await TimeEntry.findOneAndUpdate(
+        { userId: entryData.userId, date: entryData.date },
+        entryData,
+        { upsert: true, new: true }
+      );
+    }
+
+    res.json({ message: 'Sample time entries created successfully', count: sampleEntries.length });
+  } catch (error) {
+    console.error('Error creating sample data:', error);
+    res.status(500).json({ message: 'Failed to create sample data' });
+  }
+});
 
 module.exports = router;
