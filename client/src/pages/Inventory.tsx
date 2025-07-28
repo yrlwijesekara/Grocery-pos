@@ -34,6 +34,8 @@ import {
   Delete,
   Warning,
   Refresh,
+  Search,
+  Clear,
 } from '@mui/icons-material';
 import { inventoryAPI, productAPI } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -54,6 +56,9 @@ const Inventory: React.FC = () => {
   const [stockOperation, setStockOperation] = useState<'add' | 'subtract' | 'set'>('add');
   const [stockQuantity, setStockQuantity] = useState('');
   const [stockReason, setStockReason] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchCategory, setSearchCategory] = useState('');
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: '',
     barcode: '',
@@ -92,11 +97,42 @@ const Inventory: React.FC = () => {
     try {
       const response = await productAPI.getAll({ limit: 100 });
       setProducts(response.data.products);
+      setFilteredProducts(response.data.products);
     } catch (error: any) {
       console.error('Error fetching products:', error);
       toast.error('Failed to load products');
     }
   };
+
+  const handleSearch = () => {
+    let filtered = products;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(query) ||
+        (product.barcode && product.barcode.toLowerCase().includes(query)) ||
+        (product.plu && product.plu.toLowerCase().includes(query))
+      );
+    }
+
+    if (searchCategory) {
+      filtered = filtered.filter(product => product.category === searchCategory);
+    }
+
+    setFilteredProducts(filtered);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchCategory('');
+    setFilteredProducts(products);
+  };
+
+  React.useEffect(() => {
+    handleSearch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, searchCategory, products]);
 
   const loadData = async () => {
     setLoading(true);
@@ -338,9 +374,48 @@ const Inventory: React.FC = () => {
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Product Inventory
-              </Typography>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                <Typography variant="h6">
+                  Product Inventory ({filteredProducts.length} products)
+                </Typography>
+                <Box display="flex" gap={2} alignItems="center">
+                  <TextField
+                    size="small"
+                    placeholder="Search by name, barcode, or PLU..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
+                    }}
+                    sx={{ minWidth: 300 }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={searchCategory}
+                      onChange={(e) => setSearchCategory(e.target.value)}
+                      label="Category"
+                    >
+                      <MenuItem value="">All Categories</MenuItem>
+                      {categories.map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  {(searchQuery || searchCategory) && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Clear />}
+                      onClick={clearSearch}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Box>
+              </Box>
               <TableContainer component={Paper} variant="outlined">
                 <Table>
                   <TableHead>
@@ -355,7 +430,18 @@ const Inventory: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {products.map((product) => (
+                    {filteredProducts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                          <Typography variant="body2" color="textSecondary">
+                            {searchQuery || searchCategory 
+                              ? 'No products found matching your search criteria.' 
+                              : 'No products available.'}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredProducts.map((product) => (
                       <TableRow key={product._id}>
                         <TableCell>
                           <Box>
@@ -451,7 +537,7 @@ const Inventory: React.FC = () => {
                           </Box>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )))}
                   </TableBody>
                 </Table>
               </TableContainer>
