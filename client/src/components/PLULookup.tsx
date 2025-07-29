@@ -34,7 +34,9 @@ const PLULookup: React.FC<PLULookupProps> = ({
   const [pluCode, setPluCode] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [produceItems, setProduceItems] = useState<Product[]>([]);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Common PLU codes for quick access (matching seed data)
   const commonPLUs = [
@@ -58,6 +60,25 @@ const PLULookup: React.FC<PLULookupProps> = ({
       setProduceItems(response.data);
     } catch (error) {
       console.error('Error loading produce items:', error);
+    }
+  };
+
+  const handleProductSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const response = await productAPI.search({ query });
+      setSearchResults(response.data);
+    } catch (error) {
+      console.error('Error searching products:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -98,14 +119,11 @@ const PLULookup: React.FC<PLULookupProps> = ({
     onClose();
   };
 
-  const filteredProduceItems = produceItems.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.plu?.includes(searchQuery)
-  );
+  const displayItems = searchQuery.trim() ? searchResults : produceItems;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>PLU Lookup - Produce Items</DialogTitle>
+      <DialogTitle>PLU Lookup - All Products</DialogTitle>
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <form onSubmit={handlePLUSubmit}>
@@ -173,10 +191,18 @@ const PLULookup: React.FC<PLULookupProps> = ({
         <Box sx={{ mb: 2 }}>
           <TextField
             fullWidth
-            label="Search Produce Items"
+            label="Search All Products"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name or PLU"
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (e.target.value.length >= 2) {
+                handleProductSearch(e.target.value);
+              } else {
+                setSearchResults([]);
+                setIsSearching(false);
+              }
+            }}
+            placeholder="Search by name, PLU, or barcode"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -187,10 +213,15 @@ const PLULookup: React.FC<PLULookupProps> = ({
           />
         </Box>
 
-        {/* Produce Items List */}
+        {/* Product Items List */}
         <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+          {isSearching && (
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <Typography color="textSecondary">Searching...</Typography>
+            </Box>
+          )}
           <Grid container spacing={1}>
-            {filteredProduceItems.map((item) => (
+            {displayItems.map((item) => (
               <Grid item xs={12} sm={6} key={item._id}>
                 <Card
                   sx={{
@@ -233,10 +264,17 @@ const PLULookup: React.FC<PLULookupProps> = ({
             ))}
           </Grid>
           
-          {filteredProduceItems.length === 0 && searchQuery && (
+          {displayItems.length === 0 && searchQuery && !isSearching && (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography color="textSecondary">
-                No produce items found matching "{searchQuery}"
+                No products found matching "{searchQuery}"
+              </Typography>
+            </Box>
+          )}
+          {displayItems.length === 0 && !searchQuery && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="textSecondary">
+                No produce items available
               </Typography>
             </Box>
           )}
