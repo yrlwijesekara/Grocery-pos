@@ -423,7 +423,34 @@ const Settings: React.FC = () => {
               <AccordionDetails>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <TextField fullWidth label="Receipt Footer Message" defaultValue="Thank you for shopping with us!" multiline rows={3} />
+                    <Typography variant="subtitle2" gutterBottom>
+                      Store Information on Receipt
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField fullWidth label="Store Name" defaultValue="Grocery Store" />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField fullWidth label="Store Phone" defaultValue="(555) 123-4567" />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField 
+                      fullWidth 
+                      label="Store Address" 
+                      defaultValue="123 Main Street, City, State 12345" 
+                      multiline 
+                      rows={2} 
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField 
+                      fullWidth 
+                      label="Receipt Footer Message" 
+                      defaultValue="Thank you for shopping with us!&#10;Have a great day!" 
+                      multiline 
+                      rows={3}
+                      helperText="Use &#10; for line breaks"
+                    />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
@@ -448,8 +475,12 @@ const Settings: React.FC = () => {
                         <Switch />
                       </ListItem>
                       <ListItem>
-                        <ListItemText primary="Print loyalty points on receipt" />
+                        <ListItemText primary="Show loyalty information on receipt" />
                         <Switch defaultChecked />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemText primary="Auto-print receipt after transaction" />
+                        <Switch />
                       </ListItem>
                     </List>
                   </Grid>

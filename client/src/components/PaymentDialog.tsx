@@ -30,6 +30,7 @@ import { transactionAPI } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useCartStore } from '../store/cartStore';
 import { formatCurrency } from '../utils/formatters';
+import Receipt from './Receipt';
 import toast from 'react-hot-toast';
 
 interface PaymentDialogProps {
@@ -47,8 +48,8 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   items,
   customer,
 }) => {
-  useAuthStore();
-  const { clearCart, loyaltyPointsToUse, couponsApplied } = useCartStore();
+  const { user } = useAuthStore();
+  const { clearCart, loyaltyPointsToUse, couponsApplied, subtotal, taxAmount, discountAmount } = useCartStore();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [currentPayment, setCurrentPayment] = useState<Partial<Payment>>({
     method: 'cash',
@@ -56,6 +57,8 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [transactionData, setTransactionData] = useState<any>(null);
 
   const paymentMethods = [
     { value: 'cash', label: 'Cash', icon: <LocalAtm />, requiresAuth: false },
@@ -132,12 +135,28 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
 
       const response = await transactionAPI.create(transactionData);
       
-      toast.success(
-        `Transaction completed! Receipt: ${response.data.transaction.receiptNumber}`
-      );
+      // Prepare receipt data
+      const receiptData = {
+        receiptNumber: response.data.transaction.receiptNumber,
+        timestamp: response.data.transaction.createdAt,
+        items: items,
+        customer: customer,
+        payments: payments,
+        subtotal: subtotal,
+        taxAmount: taxAmount,
+        discountAmount: discountAmount,
+        totalAmount: total,
+        loyaltyPointsUsed: loyaltyPointsToUse,
+        cashier: {
+          name: `${user?.firstName} ${user?.lastName}`,
+          employeeId: user?.employeeId || '',
+        },
+      };
       
+      setTransactionData(receiptData);
+      setShowReceipt(true);
       clearCart();
-      onClose();
+      // Don't close payment dialog yet - let receipt handle the flow
     } catch (error: any) {
       console.error('Transaction error:', error);
       const message = error.response?.data?.message || 'Transaction failed';
@@ -390,6 +409,18 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
           {isProcessing ? 'Processing...' : 'Complete Transaction'}
         </Button>
       </DialogActions>
+      
+      {/* Receipt Dialog */}
+      {showReceipt && transactionData && (
+        <Receipt
+          open={showReceipt}
+          onClose={() => {
+            setShowReceipt(false);
+            onClose(); // Close the payment dialog when receipt is closed
+          }}
+          transactionData={transactionData}
+        />
+      )}
     </Dialog>
   );
 };
