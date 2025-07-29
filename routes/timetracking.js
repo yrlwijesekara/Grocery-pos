@@ -23,7 +23,6 @@ router.get('/status', authMiddleware, async (req, res) => {
       summary: {
         totalEmployees: employees.length,
         currentlyWorking: totalOnDuty,
-        onBreak: 0, // Can be extended later
         clockedOut: employees.length - totalOnDuty
       }
     });

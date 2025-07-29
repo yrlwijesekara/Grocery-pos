@@ -159,7 +159,6 @@ const TimeTracking: React.FC = () => {
     switch (status) {
       case 'clocked-in': return 'success';
       case 'clocked-out': return 'default';
-      case 'on-break': return 'warning';
       default: return 'default';
     }
   };
@@ -255,19 +254,6 @@ const TimeTracking: React.FC = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Timer sx={{ fontSize: 48, color: 'warning.main', mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
-                  On Break
-                </Typography>
-                <Typography variant="h4" color="warning.main">
-                  {employeeStatus?.summary?.onBreak || 0}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
             <Card>
