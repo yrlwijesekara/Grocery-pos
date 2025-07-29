@@ -61,6 +61,7 @@ const POS: React.FC = () => {
     addItem,
     removeItem,
     updateItemQuantity,
+    updateItemWeight,
     clearCart,
     setCustomer,
     setLoyaltyPointsToUse,
@@ -126,15 +127,24 @@ const POS: React.FC = () => {
 
   const handleEditQuantity = (item: CartItem) => {
     setEditingItem(item);
-    setEditQuantity(item.cartQuantity.toString());
+    if (item.priceType === 'weight') {
+      setEditQuantity((item.cartWeight || 0).toString());
+    } else {
+      setEditQuantity(item.cartQuantity.toString());
+    }
   };
 
   const handleSaveQuantity = () => {
     if (editingItem && editQuantity) {
       const quantity = parseFloat(editQuantity);
       if (quantity > 0) {
-        updateItemQuantity(editingItem._id, quantity);
-        toast.success('Quantity updated');
+        if (editingItem.priceType === 'weight') {
+          updateItemWeight(editingItem._id, quantity);
+          toast.success('Weight updated');
+        } else {
+          updateItemQuantity(editingItem._id, quantity);
+          toast.success('Quantity updated');
+        }
       }
     }
     setEditingItem(null);
