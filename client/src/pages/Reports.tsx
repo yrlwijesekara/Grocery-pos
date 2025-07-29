@@ -126,6 +126,10 @@ const Reports: React.FC = () => {
     setLoading(false);
   };
 
+  const loadPaymentMethodsOnly = async () => {
+    await fetchDailySales(selectedDate);
+  };
+
   useEffect(() => {
     if (user?.permissions.canViewReports) {
       loadAllReports();
@@ -133,7 +137,14 @@ const Reports: React.FC = () => {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, selectedDate]);
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.permissions.canViewReports) {
+      loadPaymentMethodsOnly();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setSelectedTab(newValue);
@@ -194,35 +205,13 @@ const Reports: React.FC = () => {
         <Typography variant="h4">
           Reports & Analytics
         </Typography>
-        <Box display="flex" gap={2} alignItems="center">
-          <FormControl size="small">
-            <InputLabel>Date</InputLabel>
-            <Select
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              label="Date"
-            >
-              {Array.from({ length: 7 }, (_, i) => {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                const dateString = date.toISOString().split('T')[0];
-                const displayDate = date.toLocaleDateString();
-                return (
-                  <MenuItem key={dateString} value={dateString}>
-                    {i === 0 ? 'Today' : i === 1 ? 'Yesterday' : displayDate}
-                  </MenuItem>
-                );
-              })}
-            </Select>
-          </FormControl>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={loadAllReports}
-          >
-            Refresh
-          </Button>
-        </Box>
+        <Button
+          variant="outlined"
+          startIcon={<Refresh />}
+          onClick={loadAllReports}
+        >
+          Refresh
+        </Button>
       </Box>
 
       {/* Daily Sales Summary */}
@@ -528,9 +517,31 @@ const Reports: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={selectedTab} index={3}>
-          <Typography variant="h6" gutterBottom>
-            Payment Methods ({selectedDate})
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Typography variant="h6">
+              Payment Methods
+            </Typography>
+            <FormControl size="small">
+              <InputLabel>Date</InputLabel>
+              <Select
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                label="Date"
+              >
+                {Array.from({ length: 7 }, (_, i) => {
+                  const date = new Date();
+                  date.setDate(date.getDate() - i);
+                  const dateString = date.toISOString().split('T')[0];
+                  const displayDate = date.toLocaleDateString();
+                  return (
+                    <MenuItem key={dateString} value={dateString}>
+                      {i === 0 ? 'Today' : i === 1 ? 'Yesterday' : displayDate}
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
+          </Box>
           <TableContainer>
             <Table>
               <TableHead>
