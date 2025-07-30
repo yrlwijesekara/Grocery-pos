@@ -44,7 +44,7 @@ import {
   Visibility,
   Store,
   Payment,
-  Receipt,
+  Receipt as ReceiptMUIIcon,
   Backup,
   Update,
   AdminPanelSettings,
@@ -56,8 +56,13 @@ import {
   Loyalty,
   History,
   ShoppingCart,
-  Refresh
+  Refresh,
+  FilterList,
+  Today,
+  DateRange
 } from '@mui/icons-material';
+import ReceiptComponent from '../components/Receipt';
+import { formatCurrency } from '../utils/formatters';
 
 interface Transaction {
   _id: string;
@@ -74,6 +79,7 @@ interface Transaction {
     name: string;
     quantity: number;
     weight?: number;
+    totalPrice?: number;
   }>;
   totalAmount: number;
   createdAt: string;
@@ -84,6 +90,9 @@ const Settings: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
 
   // Fetch recent transactions when full settings dialog opens
   useEffect(() => {
@@ -92,12 +101,28 @@ const Settings: React.FC = () => {
     }
   }, [showFullSettings]);
 
-  const fetchRecentTransactions = async () => {
+  // Fetch transactions when date changes
+  useEffect(() => {
+    if (showFullSettings && selectedDate) {
+      fetchRecentTransactions(selectedDate);
+    }
+  }, [selectedDate, showFullSettings]);
+
+  const fetchRecentTransactions = async (date?: string) => {
     setLoadingTransactions(true);
     setTransactionError(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/transactions?limit=10&page=1', {
+      const queryParams = new URLSearchParams({
+        limit: '50',
+        page: '1'
+      });
+      
+      if (date) {
+        queryParams.append('date', date);
+      }
+      
+      const response = await fetch(`/api/transactions?${queryParams.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -116,6 +141,69 @@ const Settings: React.FC = () => {
     } finally {
       setLoadingTransactions(false);
     }
+  };
+
+  const handleDateFilter = (date: string) => {
+    setSelectedDate(date);
+    fetchRecentTransactions(date);
+  };
+
+  const handleViewReceipt = (transaction: Transaction) => {
+    // Convert transaction to receipt format
+    const receiptData = {
+      receiptNumber: transaction.transactionId,
+      timestamp: transaction.createdAt,
+      items: transaction.items.map(item => ({
+        ...item,
+        _id: `item-${Math.random()}`,
+        category: 'General',
+        price: item.totalPrice ? item.totalPrice / item.quantity : 10, // Default price if not available
+        priceType: item.weight ? 'weight' : 'fixed',
+        unit: item.weight ? 'lb' : 'piece',
+        cartQuantity: item.quantity,
+        cartWeight: item.weight,
+        cartDiscount: 0,
+        barcode: '',
+        plu: ''
+      })),
+      customer: transaction.customer ? {
+        ...transaction.customer,
+        _id: 'customer-id',
+        customerId: 'CUST001',
+        email: '',
+        loyaltyProgram: {
+          membershipNumber: 'LP001',
+          points: 0,
+          tier: 'bronze' as const,
+          joinDate: new Date().toISOString()
+        },
+        preferences: {
+          emailReceipts: false,
+          smsNotifications: false,
+          marketingEmails: false
+        },
+        purchaseHistory: {
+          totalSpent: 0,
+          totalTransactions: 0,
+          averageTransactionAmount: 0
+        },
+        taxExempt: false,
+        isActive: true
+      } : null,
+      payments: [{ method: 'cash' as const, amount: transaction.totalAmount }],
+      subtotal: transaction.totalAmount * 0.9, // Estimate
+      taxAmount: transaction.totalAmount * 0.1, // Estimate
+      discountAmount: 0,
+      totalAmount: transaction.totalAmount,
+      loyaltyPointsUsed: 0,
+      cashier: {
+        name: `${transaction.cashier.firstName} ${transaction.cashier.lastName}`,
+        employeeId: 'EMP001'
+      }
+    };
+    
+    setSelectedTransaction(receiptData as any);
+    setShowReceipt(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -416,7 +504,7 @@ const Settings: React.FC = () => {
             <Accordion>
               <AccordionSummary expandIcon={<ExpandMore />}>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Receipt />
+                  <ReceiptMUIIcon />
                   <Typography variant="h6">Receipt Configuration</Typography>
                 </Box>
               </AccordionSummary>
@@ -493,23 +581,52 @@ const Settings: React.FC = () => {
               <AccordionSummary expandIcon={<ExpandMore />}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <History />
-                  <Typography variant="h6">Customer Checkout History</Typography>
+                  <Typography variant="h6">Transaction History & Receipts</Typography>
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
                 <Box sx={{ mb: 2 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="subtitle2">
-                      Recent Customer Transactions
-                    </Typography>
-                    <Button 
-                      size="small" 
-                      startIcon={<Refresh />}
-                      onClick={fetchRecentTransactions}
-                      disabled={loadingTransactions}
-                    >
-                      Refresh
-                    </Button>
+                  {/* Date Filter and Controls */}
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={2}>
+                    <Box display="flex" alignItems="center" gap={2}>
+                      <Typography variant="subtitle2">
+                        Transaction History
+                      </Typography>
+                      <Chip 
+                        icon={<FilterList />} 
+                        label={`${transactions.length} transactions`} 
+                        size="small" 
+                        variant="outlined" 
+                      />
+                    </Box>
+                    <Box display="flex" alignItems="center" gap={2}>
+                      <TextField
+                        size="small"
+                        type="date"
+                        label="Filter by Date"
+                        value={selectedDate}
+                        onChange={(e) => handleDateFilter(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ minWidth: 150 }}
+                      />
+                      <Button 
+                        size="small" 
+                        startIcon={<Today />}
+                        onClick={() => handleDateFilter(new Date().toISOString().split('T')[0])}
+                        variant="outlined"
+                      >
+                        Today
+                      </Button>
+                      <Button 
+                        size="small" 
+                        startIcon={<Refresh />}
+                        onClick={() => fetchRecentTransactions(selectedDate)}
+                        disabled={loadingTransactions}
+                        variant="outlined"
+                      >
+                        Refresh
+                      </Button>
+                    </Box>
                   </Box>
                   
                   {transactionError && (
@@ -518,22 +635,23 @@ const Settings: React.FC = () => {
                     </Alert>
                   )}
                   
-                  <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+                  <TableContainer component={Paper} sx={{ maxHeight: 500 }}>
                     <Table stickyHeader size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell>Date</TableCell>
+                          <TableCell>Date & Time</TableCell>
                           <TableCell>Customer</TableCell>
-                          <TableCell>Transaction ID</TableCell>
+                          <TableCell>Receipt #</TableCell>
                           <TableCell align="right">Amount</TableCell>
-                          <TableCell>Items Purchased</TableCell>
+                          <TableCell>Items</TableCell>
                           <TableCell>Cashier</TableCell>
+                          <TableCell align="center">Actions</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {loadingTransactions ? (
                           <TableRow>
-                            <TableCell colSpan={6} align="center">
+                            <TableCell colSpan={7} align="center">
                               <Box display="flex" justifyContent="center" alignItems="center" py={3}>
                                 <CircularProgress size={24} sx={{ mr: 2 }} />
                                 <Typography>Loading transactions...</Typography>
@@ -542,29 +660,92 @@ const Settings: React.FC = () => {
                           </TableRow>
                         ) : transactions.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} align="center">
+                            <TableCell colSpan={7} align="center">
                               <Typography color="text.secondary" py={3}>
-                                No recent transactions found
+                                {selectedDate === new Date().toISOString().split('T')[0] 
+                                  ? 'No transactions found for today' 
+                                  : `No transactions found for ${new Date(selectedDate).toLocaleDateString()}`}
                               </Typography>
                             </TableCell>
                           </TableRow>
                         ) : (
                           transactions.map((transaction) => (
-                            <TableRow key={transaction._id}>
-                              <TableCell>{formatDate(transaction.createdAt)}</TableCell>
-                              <TableCell>{getCustomerName(transaction.customer)}</TableCell>
-                              <TableCell>{transaction.transactionId}</TableCell>
-                              <TableCell align="right">Rs {transaction.totalAmount.toFixed(2)}</TableCell>
-                              <TableCell sx={{ maxWidth: 300, wordWrap: 'break-word' }}>
-                                {formatItems(transaction.items)}
+                            <TableRow key={transaction._id} hover>
+                              <TableCell>
+                                <Box>
+                                  <Typography variant="body2" fontWeight="medium">
+                                    {new Date(transaction.createdAt).toLocaleDateString()}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {new Date(transaction.createdAt).toLocaleTimeString()}
+                                  </Typography>
+                                </Box>
                               </TableCell>
-                              <TableCell>{transaction.cashier.firstName} {transaction.cashier.lastName}</TableCell>
+                              <TableCell>
+                                <Box>
+                                  <Typography variant="body2">
+                                    {getCustomerName(transaction.customer)}
+                                  </Typography>
+                                  {transaction.customer && (
+                                    <Chip label="Loyalty Member" size="small" color="primary" variant="outlined" />
+                                  )}
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" fontFamily="monospace">
+                                  {transaction.transactionId}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right">
+                                <Typography variant="body2" fontWeight="medium">
+                                  {formatCurrency(transaction.totalAmount)}
+                                </Typography>
+                              </TableCell>
+                              <TableCell sx={{ maxWidth: 250 }}>
+                                <Typography variant="body2" sx={{ 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {formatItems(transaction.items)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {transaction.items.length} item{transaction.items.length !== 1 ? 's' : ''}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2">
+                                  {transaction.cashier.firstName} {transaction.cashier.lastName}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center">
+                                <Button
+                                  size="small"
+                                  startIcon={<ReceiptMUIIcon />}
+                                  onClick={() => handleViewReceipt(transaction)}
+                                  variant="outlined"
+                                  sx={{ minWidth: 100 }}
+                                >
+                                  View Receipt
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))
                         )}
                       </TableBody>
                     </Table>
                   </TableContainer>
+                  
+                  {transactions.length > 0 && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Summary for {new Date(selectedDate).toLocaleDateString()}:</strong> {' '}
+                        {transactions.length} transactions • {' '}
+                        Total: {formatCurrency(transactions.reduce((sum, t) => sum + t.totalAmount, 0))} • {' '}
+                        Average: {formatCurrency(transactions.reduce((sum, t) => sum + t.totalAmount, 0) / transactions.length)}
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </AccordionDetails>
             </Accordion>
@@ -665,6 +846,15 @@ const Settings: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Receipt Dialog */}
+      {showReceipt && selectedTransaction && (
+        <ReceiptComponent
+          open={showReceipt}
+          onClose={() => setShowReceipt(false)}
+          transactionData={selectedTransaction}
+        />
+      )}
     </Box>
   );
 };
