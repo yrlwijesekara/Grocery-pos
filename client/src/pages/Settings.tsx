@@ -64,6 +64,7 @@ import {
 import ReceiptComponent from '../components/Receipt';
 import { formatCurrency } from '../utils/formatters';
 import { useReceiptConfig } from '../hooks/useReceiptConfig';
+import { transactionAPI } from '../services/api';
 
 interface Transaction {
   _id: string;
@@ -91,7 +92,7 @@ const Settings: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   
@@ -106,7 +107,7 @@ const Settings: React.FC = () => {
     }
   }, [showFullSettings]);
 
-  // Fetch transactions when date changes
+  // Fetch transactions when date changes (only if a date is selected)
   useEffect(() => {
     if (showFullSettings && selectedDate) {
       fetchRecentTransactions(selectedDate);
@@ -117,30 +118,29 @@ const Settings: React.FC = () => {
     setLoadingTransactions(true);
     setTransactionError(null);
     try {
-      const token = localStorage.getItem('token');
-      const queryParams = new URLSearchParams({
-        limit: '50',
-        page: '1'
-      });
+      const params: any = {
+        limit: 50,
+        page: 1
+      };
       
       if (date) {
-        queryParams.append('date', date);
+        // Convert date to proper format and handle timezone
+        const selectedDate = new Date(date);
+        // Set to start of day in local timezone
+        selectedDate.setHours(0, 0, 0, 0);
+        const startDate = selectedDate.toISOString();
+        
+        // Set to end of day in local timezone
+        selectedDate.setHours(23, 59, 59, 999);
+        const endDate = selectedDate.toISOString();
+        
+        params.startDate = startDate;
+        params.endDate = endDate;
       }
       
-      const response = await fetch(`/api/transactions?${queryParams.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
-      }
-      
-      const data = await response.json();
-      setTransactions(data.transactions || []);
-    } catch (error) {
+      const response = await transactionAPI.getAll(params);
+      setTransactions(response.data.transactions || []);
+    } catch (error: any) {
       console.error('Error fetching transactions:', error);
       setTransactionError('Failed to load transaction history');
     } finally {
@@ -150,7 +150,14 @@ const Settings: React.FC = () => {
 
   const handleDateFilter = (date: string) => {
     setSelectedDate(date);
-    fetchRecentTransactions(date);
+    if (date) {
+      fetchRecentTransactions(date);
+    }
+  };
+
+  const resetDateFilter = () => {
+    setSelectedDate('');
+    fetchRecentTransactions();
   };
 
   const handleViewReceipt = (transaction: Transaction) => {
@@ -666,6 +673,17 @@ const Settings: React.FC = () => {
                       >
                         Refresh
                       </Button>
+                      {selectedDate && (
+                        <Button 
+                          size="small" 
+                          onClick={resetDateFilter}
+                          disabled={loadingTransactions}
+                          variant="outlined"
+                          color="secondary"
+                        >
+                          Show All
+                        </Button>
+                      )}
                     </Box>
                   </Box>
                   
@@ -779,7 +797,11 @@ const Settings: React.FC = () => {
                   {transactions.length > 0 && (
                     <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                       <Typography variant="body2" color="text.secondary">
-                        <strong>Summary for {new Date(selectedDate).toLocaleDateString()}:</strong> {' '}
+                        <strong>
+                          {selectedDate 
+                            ? `Summary for ${new Date(selectedDate).toLocaleDateString()}:` 
+                            : 'Summary (All transactions):'}
+                        </strong> {' '}
                         {transactions.length} transactions • {' '}
                         Total: {formatCurrency(transactions.reduce((sum, t) => sum + t.totalAmount, 0))} • {' '}
                         Average: {formatCurrency(transactions.reduce((sum, t) => sum + t.totalAmount, 0) / transactions.length)}
