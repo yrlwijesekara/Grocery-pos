@@ -63,6 +63,7 @@ import {
 } from '@mui/icons-material';
 import ReceiptComponent from '../components/Receipt';
 import { formatCurrency } from '../utils/formatters';
+import { useReceiptConfig } from '../hooks/useReceiptConfig';
 
 interface Transaction {
   _id: string;
@@ -93,6 +94,10 @@ const Settings: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  
+  // Use the receipt configuration hook
+  const { receiptConfig, updateReceiptConfig, saveReceiptConfig, getReceiptProps } = useReceiptConfig();
+
 
   // Fetch recent transactions when full settings dialog opens
   useEffect(() => {
@@ -221,6 +226,7 @@ const Settings: React.FC = () => {
     if (!customer) return 'Guest Customer';
     return `${customer.firstName} ${customer.lastName}`;
   };
+
 
   return (
     <Box>
@@ -516,16 +522,27 @@ const Settings: React.FC = () => {
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Store Name" defaultValue="Grocery Store" />
+                    <TextField 
+                      fullWidth 
+                      label="Store Name" 
+                      value={receiptConfig.storeName}
+                      onChange={(e) => updateReceiptConfig('storeName', e.target.value)}
+                    />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Store Phone" defaultValue="(555) 123-4567" />
+                    <TextField 
+                      fullWidth 
+                      label="Store Phone" 
+                      value={receiptConfig.storePhone}
+                      onChange={(e) => updateReceiptConfig('storePhone', e.target.value)}
+                    />
                   </Grid>
                   <Grid item xs={12}>
                     <TextField 
                       fullWidth 
                       label="Store Address" 
-                      defaultValue="123 Main Street, City, State 12345" 
+                      value={receiptConfig.storeAddress}
+                      onChange={(e) => updateReceiptConfig('storeAddress', e.target.value)}
                       multiline 
                       rows={2} 
                     />
@@ -534,41 +551,64 @@ const Settings: React.FC = () => {
                     <TextField 
                       fullWidth 
                       label="Receipt Footer Message" 
-                      defaultValue="Thank you for shopping with us!&#10;Have a great day!" 
+                      value={receiptConfig.footerMessage}
+                      onChange={(e) => updateReceiptConfig('footerMessage', e.target.value)}
                       multiline 
                       rows={3}
-                      helperText="Use &#10; for line breaks"
+                      helperText="Use \n for line breaks"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel>Receipt Size</InputLabel>
-                      <Select defaultValue="80mm" label="Receipt Size">
+                      <Select 
+                        value={receiptConfig.receiptSize} 
+                        label="Receipt Size"
+                        onChange={(e) => updateReceiptConfig('receiptSize', e.target.value)}
+                      >
                         <MenuItem value="58mm">58mm</MenuItem>
                         <MenuItem value="80mm">80mm</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Copies to Print" defaultValue="1" type="number" />
+                    <TextField 
+                      fullWidth 
+                      label="Copies to Print" 
+                      value={receiptConfig.copiesToPrint}
+                      onChange={(e) => updateReceiptConfig('copiesToPrint', parseInt(e.target.value) || 1)}
+                      type="number" 
+                    />
                   </Grid>
                   <Grid item xs={12}>
                     <List>
                       <ListItem>
                         <ListItemText primary="Print store logo" />
-                        <Switch defaultChecked />
+                        <Switch 
+                          checked={receiptConfig.printLogo}
+                          onChange={(e) => updateReceiptConfig('printLogo', e.target.checked)}
+                        />
                       </ListItem>
                       <ListItem>
                         <ListItemText primary="Print barcode on receipt" />
-                        <Switch />
+                        <Switch 
+                          checked={receiptConfig.printBarcode}
+                          onChange={(e) => updateReceiptConfig('printBarcode', e.target.checked)}
+                        />
                       </ListItem>
                       <ListItem>
                         <ListItemText primary="Show loyalty information on receipt" />
-                        <Switch defaultChecked />
+                        <Switch 
+                          checked={receiptConfig.showLoyaltyInfo}
+                          onChange={(e) => updateReceiptConfig('showLoyaltyInfo', e.target.checked)}
+                        />
                       </ListItem>
                       <ListItem>
                         <ListItemText primary="Auto-print receipt after transaction" />
-                        <Switch />
+                        <Switch 
+                          checked={receiptConfig.autoPrintReceipt}
+                          onChange={(e) => updateReceiptConfig('autoPrintReceipt', e.target.checked)}
+                        />
                       </ListItem>
                     </List>
                   </Grid>
@@ -841,7 +881,13 @@ const Settings: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowFullSettings(false)}>Close</Button>
-          <Button variant="contained" onClick={() => setShowFullSettings(false)}>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              saveReceiptConfig();
+              setShowFullSettings(false);
+            }}
+          >
             Save Settings
           </Button>
         </DialogActions>
@@ -853,6 +899,7 @@ const Settings: React.FC = () => {
           open={showReceipt}
           onClose={() => setShowReceipt(false)}
           transactionData={selectedTransaction}
+          receiptConfig={getReceiptProps()}
         />
       )}
     </Box>

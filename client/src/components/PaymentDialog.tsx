@@ -32,6 +32,7 @@ import { useCartStore } from '../store/cartStore';
 import { formatCurrency } from '../utils/formatters';
 import Receipt from './Receipt';
 import toast from 'react-hot-toast';
+import { useReceiptConfig } from '../hooks/useReceiptConfig';
 
 interface PaymentDialogProps {
   open: boolean;
@@ -50,6 +51,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
 }) => {
   const { user } = useAuthStore();
   const { clearCart, loyaltyPointsToUse, couponsApplied, subtotal, taxAmount, discountAmount } = useCartStore();
+  const { getReceiptProps } = useReceiptConfig();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [currentPayment, setCurrentPayment] = useState<Partial<Payment>>({
     method: 'cash',
@@ -419,6 +421,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
             onClose(); // Close the payment dialog when receipt is closed
           }}
           transactionData={transactionData}
+          receiptConfig={getReceiptProps()}
         />
       )}
     </Dialog>
